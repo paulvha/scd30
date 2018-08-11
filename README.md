@@ -5,5 +5,5 @@ This will contain the driver for the SCD30
 
 Directory Arduino : Files for the Arduino IDE and supports Arduino and ESP8266
 
-Directory Rapsberry : future for raspberry PI (I hope given the clock stretches challenges)
+Directory Raspberry : future for raspberry PI (I hope given the clock stretches challenges)
 
