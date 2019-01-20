@@ -20,6 +20,12 @@
   differences and maximum delta of humidity and temperature
   **********************************************************************
 
+  *********************************************************************
+  * modified paulvha : January 2019
+  *********************************************************************
+  Added option to set BME280 I2C addr. (some use 0x76 instead of 0x77)
+  *********************************************************************
+
   Hardware Connections:
   If needed, attach a Qwiic Shield to your Arduino/Photon/ESP32 or other
   Plug the device into an available Qwiic port
@@ -65,18 +71,24 @@
 #include "paulvha_SCD30.h"
 #include "SparkFunBME280.h"
 
-//////////////////////////////////////////////////////////////////////////
-// set SCD30 driver debug level (ONLY NEEDED CASE OF SCD30 ERRORS)      //
-//                                                                      //
-// 0 : no messages                                                      //
-// 1 : request sending and receiving                                    //
-// 2 : request sending and receiving + show protocol errors             //
-//////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+// set SCD30 driver debug level (ONLY NEEDED CASE OF SCD30 ERRORS)   //
+//                                                                   //
+// 0 : no messages                                                   //
+// 1 : request sending and receiving                                 //
+// 2 : request sending and receiving + show protocol errors          //
+///////////////////////////////////////////////////////////////////////
 #define scd_debug 0
 
-//////////////////////////////////////////////////////////////////////////
-//////////////// NO CHANGES BEYOND THIS POINT NEEDED /////////////////////
-//////////////////////////////////////////////////////////////////////////
+///////////////////////////////////////////////////////////////////////
+// define the BME280 address.                                        //
+// Use if address jumper is closed : 0x76.                           //
+///////////////////////////////////////////////////////////////////////
+#define I2CADDR 0x77
+
+///////////////////////////////////////////////////////////////////////
+//////////////// NO CHANGES BEYOND THIS POINT NEEDED //////////////////
+///////////////////////////////////////////////////////////////////////
 
 BME280 mySensor; //Global sensor object
 SCD30 airSensor;
@@ -107,6 +119,9 @@ void setup()
   // 2 : request sending and receiving + show protocol errors
   airSensor.setDebug(scd_debug);
 
+  // set I2C address. default is 0x77
+  mySensor.setI2CAddress(I2CADDR);
+
   if (mySensor.beginI2C() == false) // Begin communication over I2C
   {
     Serial.println("The BME280 did not respond. Please check wiring.");
@@ -125,7 +140,7 @@ void setup()
     Serial.println("The SCD30 did not respond. Please check wiring.");
     while(1);
   }
-    
+
   // Read SCD30 serial number as printed on the device
   // buffer MUST be at least 7 digits (6 serial + 0x0)
   airSensor.getSerialNumber(buf);
@@ -239,4 +254,3 @@ void serialTrigger()
   while (Serial.available())
     Serial.read();
 }
-
