@@ -86,7 +86,10 @@ boolean SCD30::begin(TwoWire &wirePort)
    * for clock stretch to be controlled by the client.  (which is nearly the same as the hardware I2C works which does NOT seem to
    * have timeout)
    *
+   * The ESP32 seems to use hardware I2C and thus does not support setClockStretchLimit (and does not need it either )
+   * the following would fails as a results : #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
    */
+
 #if defined(ARDUINO_ESP8266_THING) || defined(ARDUINO_ESP8266_GENERIC) || defined(ARDUINO_ESP8266_ESP01) || defined(ARDUINO_ESP8266_ESP13) || defined(ARDUINO_ESP8266_ESP12) || defined(ARDUINO_ESP8266_NODEMCU) || defined(ARDUINO_ESP8266_THING_DEV) || defined (ARDUINO_ESP8266_ESP210) || defined(ARDUINO_MOD_WIFI_ESP8266) || defined(ARDUINO_ESP8266_PHOENIX_V1) || defined(ARDUINO_ESP8266_PHOENIX_V2) || defined(ARDUINO_ESP8266_ARDUINO)
 
     if (SCD_DEBUG > 1) printf("setting clock stretching to 200000 (~200ms)\n");
