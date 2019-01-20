@@ -3,7 +3,12 @@ paulvha SCD30 library
 
 Based on the SparkFun SCD30 CO2 Sensor Library, see information below
 
-Modified by paulvha version 10 August, 2018
+## Prerequisites
+  * for BME280 (example 10) : https://github.com/sparkfun/SparkFun_BME280_Arduino_Library
+
+## Versioning
+
+### Modified by paulvha version 10 August, 2018
 
   Changes:
   * Added ESP8266 board detection in begin() to support the ESP8266 clockstretching
@@ -18,6 +23,10 @@ Modified by paulvha version 10 August, 2018
             Example 10: combined read with BME280
             Example 11: Set ESP8266 as Access Point and read SCD30 in browser
             Example 12: Set ESP8266 as WIFI server and read SCD30 in browser
+
+### Modified by paulvha version 20 January, 2019
+
+  * Added option in example 10 to set BME280 I2C address. (some use 0x76 instead of 0x77)
 
 More work to be follow on connecting / comparing with other sensors and document the learnings.
 
