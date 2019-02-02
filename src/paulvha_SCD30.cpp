@@ -36,6 +36,17 @@
   * Added CRC checks on different places
   * Added getTemperatureF (Fahrenheit)
   *
+  * Added check on Temperature offset
+
+  Modified by Paulvha version February 2019
+
+  Changes:
+  * Added option in examples 10 and 13 to set BME280 I2C address. (some use 0x76 instead of 0x77)
+  * Added SoftWire (a port of the ESP8266 I2C library) for ESP32 (which does NOT support clockstretching)
+  * Removed StartSingleMeasurement as that is not working in the SCD30 as it should.
+  * Added option to begin() to disable starting measurement. (needed in case one wants to read serial number)
+  * updated the keywords.txt file
+  * updated sketches and library where needed
   *********************************************************************
 */
 
@@ -55,8 +66,12 @@ SCD30::SCD30(void)
   // Constructor
 }
 
-//Initialize the Serial port
-boolean SCD30::begin(TwoWire &wirePort)
+/**
+ * @brief Initialize the Serial port
+ * @param wirePort : I2C channel to use
+ * @param m_begin  : if true will start measurement every 2 seconds
+ */
+boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
 {
   _i2cPort = &wirePort; //Grab which port the user wants us to use
 
@@ -86,22 +101,23 @@ boolean SCD30::begin(TwoWire &wirePort)
    * for clock stretch to be controlled by the client.  (which is nearly the same as the hardware I2C works which does NOT seem to
    * have timeout)
    *
-   * The ESP32 seems to use hardware I2C and thus does not support setClockStretchLimit (and does not need it either )
-   * the following would fails as a results : #if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
+   * The ESP32 seems to use hardware I2C and thus does not support ClockStretch. A special port of the I2C from the ESP8266 has been
+   * done and included as SoftSerial for ESP32
    */
 
-#if defined(ARDUINO_ESP8266_THING) || defined(ARDUINO_ESP8266_GENERIC) || defined(ARDUINO_ESP8266_ESP01) || defined(ARDUINO_ESP8266_ESP13) || defined(ARDUINO_ESP8266_ESP12) || defined(ARDUINO_ESP8266_NODEMCU) || defined(ARDUINO_ESP8266_THING_DEV) || defined (ARDUINO_ESP8266_ESP210) || defined(ARDUINO_MOD_WIFI_ESP8266) || defined(ARDUINO_ESP8266_PHOENIX_V1) || defined(ARDUINO_ESP8266_PHOENIX_V2) || defined(ARDUINO_ESP8266_ARDUINO)
-
+//#if defined(ARDUINO_ESP8266_THING) || defined(ARDUINO_ESP8266_GENERIC) || defined(ARDUINO_ESP8266_ESP01) || defined(ARDUINO_ESP8266_ESP13) || defined(ARDUINO_ESP8266_ESP12) || defined(ARDUINO_ESP8266_NODEMCU) || defined(ARDUINO_ESP8266_THING_DEV) || defined (ARDUINO_ESP8266_ESP210) || defined(ARDUINO_MOD_WIFI_ESP8266) || defined(ARDUINO_ESP8266_PHOENIX_V1) || defined(ARDUINO_ESP8266_PHOENIX_V2) || defined(ARDUINO_ESP8266_ARDUINO)
+#if defined(ARDUINO_ARCH_ESP32) || defined(ARDUINO_ARCH_ESP8266)
     if (SCD_DEBUG > 1) printf("setting clock stretching to 200000 (~200ms)\n");
     _i2cPort->setClockStretchLimit(200000);
 
 #else
-
-    if (SCD_DEBUG > 1) printf("NO ESP8266 expected\n");
-
+    if (SCD_DEBUG > 1) printf("NO ESP8266/ ESP32 expected\n");
 #endif
 
-  //Check for device to respond correctly
+  // if measurement is started immediately the serial number can often not be read
+  if(m_begin == false) return(true);
+
+  // Check for device to respond correctly
   if(beginMeasuring() == true)     //Start continuous measurements
   {
     setMeasurementInterval(2);    //2 seconds between measurements
@@ -190,20 +206,10 @@ boolean SCD30::getSerialNumber(char *val)
 
   if (SCD_DEBUG > 0)
   {
-       printf("Reading serialnumber from I2C address 0x%x",SCD30_ADDRESS);
+       printf("Reading serialnumber from I2C address 0x%x\n",SCD30_ADDRESS);
   }
 
-  // load the I2C driver buffer
-  _i2cPort->beginTransmission(SCD30_ADDRESS);
-  _i2cPort->write(CMD_READ_SERIALNBR >> 8); //MSB
-  _i2cPort->write(CMD_READ_SERIALNBR & 0xFF); //LSB
-
-  // now that all is in the buffer, start sending request and end transmission
-  if (_i2cPort->endTransmission() != 0) //Sensor did not ACK
-  {
-    if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
-    return(false);
-  }
+  if (sendCommand(CMD_READ_SERIALNBR) == false) return(false);
 
   // Start receiving
   _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)9);
@@ -277,11 +283,23 @@ boolean SCD30::setAutoSelfCalibration(boolean enable)
  * Temperature offset value is saved in non-volatile memory.
  * The last set value will be used for temperature offset compensation after repowering.
  *
- * The ref temperature is 25 C. So if the current temperature is different call this routine
- * to improve the quality of reading. ( see the document in the extras directory of the driver)
+ * The ref temperature is based on the temperature underwhich the sensor was calibrated.
+ * So if the current temperature is different call this routine to improve the quality of reading.
+ *
+ * Assume the calibration was done at 27C, current it is 29C the temp offset = 2
+ *
+ * August 2018: all this does for now is lower the SCD30 temperature reading to with the offset value
+ * over a period of 10 min, while increasing the humidity readings. NO impact on the CO2 readings.
+ *
+ * The value can NOT be negative as it will cause uncontrolled temperature and humidity results.
+ *
+ * ( see the document in the extras directory of the driver)
  */
 boolean SCD30::setTemperatureOffset(float tempOffset)
 {
+  // can not be negative number
+  if (tempOffset < 0) return(false);
+
   int16_t tickOffset = tempOffset * 100;
 
   if (SCD_DEBUG > 0) printf("temperuture offset : %d\n", tickOffset);
@@ -342,7 +360,7 @@ boolean SCD30::beginMeasuring(uint16_t pressureOffset)
   return(sendCommand(COMMAND_CONTINUOUS_MEASUREMENT, pressureOffset));
 }
 
-//Overload - no pressureOffset
+// Overload - no pressureOffset
 boolean SCD30::beginMeasuring(void)
 {
   return(beginMeasuring(0));
@@ -370,18 +388,7 @@ boolean SCD30::setMeasurementInterval(uint16_t interval)
   return(sendCommand(COMMAND_SET_MEASUREMENT_INTERVAL, interval));
 }
 
-/* Paulvha : august 2018 perform a single measurement
- * first call stopMeasurement()
- * return
- *  true = OK
- *  false  = error
- */
-boolean SCD30::StartSingleMeasurement(void)
-{
-  return(sendCommand(CMD_START_SINGLE_MEAS, 0x0000));
-}
-
-//Returns true when data is available. see 1.3.4
+// Returns true when data is available. see 1.3.4
 boolean SCD30::dataAvailable()
 {
   uint16_t response = readRegister(COMMAND_GET_DATA_READY);
@@ -411,17 +418,7 @@ boolean SCD30::readMeasurement()
        printf("Reading measurement from I2C address 0x%x. ",SCD30_ADDRESS);
   }
 
-  // load the I2C driver buffer
-  _i2cPort->beginTransmission(SCD30_ADDRESS);
-  _i2cPort->write(COMMAND_READ_MEASUREMENT >> 8); //MSB
-  _i2cPort->write(COMMAND_READ_MEASUREMENT & 0xFF); //LSB
-
-  // now that all is in the buffer, start sending and end transmission
-  if (_i2cPort->endTransmission() != 0) //Sensor did not ACK
-  {
-    if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
-    return (0);
-  }
+  if (sendCommand(COMMAND_READ_MEASUREMENT) == false) return(false);
 
   // start receiving
   _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)18);
@@ -527,7 +524,7 @@ uint16_t SCD30::readRegister(uint16_t registerAddress)
   if (_i2cPort->endTransmission() != 0)
   {
     if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
-    return (0); //Sensor did not ACK
+    return (0);
   }
 
   // Start receiving
@@ -652,7 +649,7 @@ boolean SCD30::sendCommand(uint16_t command, uint16_t arguments)
   return (true);
 }
 
-//Sends just a command, no arguments, no CRC
+// Sends just a command, no arguments, no CRC
 boolean SCD30::sendCommand(uint16_t command)
 {
   if (SCD_DEBUG > 0)
@@ -670,7 +667,7 @@ boolean SCD30::sendCommand(uint16_t command)
   if (_i2cPort->endTransmission() != 0)
   {
     if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
-    return (false); //Sensor did not ACK
+    return (false);
   }
 
   return (true);

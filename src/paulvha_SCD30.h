@@ -35,7 +35,16 @@
   * Added StartSingleMeasurement
   * Added CRC checks on different places
   * Added getTemperatureF (Fahrenheit)
-  *
+
+  Modified by Paulvha version February 2019
+
+ Changes:
+ * Added option in examples 10 and 13 to set BME280 I2C address. (some use 0x76 instead of 0x77)
+ * Added SoftWire (a port of the ESP8266 I2C library) for ESP32 (which does NOT support clockstretching)
+ * Removed StartSingleMeasurement as that is not working in the SCD30 as it should.
+ * Added option to begin() to disable starting measurement. (needed in case one wants to read serial number)
+ * updated the keywords.txt file
+ * updated sketches and library where needed
   *********************************************************************
 */
 
@@ -47,7 +56,16 @@
 #include "WProgram.h"
 #endif
 
+/** ESP32 hardware I2C does NOT support clock stretching
+ * while that is necessary for the SDSP30
+ *
+ * A port of the ESP8266 I2C has been done to support this
+ */
+#if defined(ARDUINO_ARCH_ESP32)
+#include <SoftWire/SoftWire.h>
+#else
 #include <Wire.h>
+#endif
 
 //The default I2C address for the SCD30 is 0x61.
 #define SCD30_ADDRESS 0x61
@@ -71,14 +89,17 @@ class SCD30
   public:
         SCD30(void);
 
-        boolean begin(TwoWire &wirePort = Wire); //By default use Wire port
+        boolean begin(TwoWire &wirePort = Wire, bool m_begin = true); //By default use Wire port
 
         boolean beginMeasuring(uint16_t pressureOffset);
         boolean beginMeasuring(void);
         boolean StopMeasurement(void);
 
-        // paulvh : added single measurement
-        boolean StartSingleMeasurement(void);
+        /* this has been removed as the implementation is NOT stable
+         * in the SCD30
+         *
+         * boolean StartSingleMeasurement(void);
+         */
 
         // paulvha : added get serial number
         boolean getSerialNumber(char *val);
@@ -96,19 +117,19 @@ class SCD30
         boolean setTemperatureOffset(float tempOffset);
 
         boolean dataAvailable();
-        boolean readMeasurement();
 
+        // paulvha : added debug messages
+        void setDebug(int val);
+
+  private:
+
+        boolean readMeasurement();
         boolean sendCommand(uint16_t command, uint16_t arguments);
         boolean sendCommand(uint16_t command);
 
         uint16_t readRegister(uint16_t registerAddress);
 
         uint8_t computeCRC8(uint8_t data[], uint8_t len);
-
-        // paulvha : added debug messages
-        void setDebug(int val);
-
-  private:
         // paulvha : added for debug messages
         void debug_cmd(uint16_t command);
 
@@ -125,5 +146,4 @@ class SCD30
         boolean co2HasBeenReported = true;
         boolean humidityHasBeenReported = true;
         boolean temperatureHasBeenReported = true;
-
 };
