@@ -16,22 +16,25 @@
   Plug the sensor onto the shield
   Serial.print it out at 9600 baud to serial monitor.
 
+  NOTE: THIS EXAMPLE WILL FAIL ON A DEVICE THAT ONLY HAS ONE WIRE INTERFACE
+
   Note: 100kHz I2C is fine, but according to the datasheet 400kHz I2C is not supported by the SCD30
 */
 
-#include <Wire.h>
-#include "#include paulvha_SCD30.h"
+#include "paulvha_SCD30.h"
 
 SCD30 airSensor;
 
 void setup()
 {
   Serial.begin(9600);
-  Serial.println("SCD30 Example");
+  Serial.println("SCD30 Example 3");
 
-  Wire1.begin(); //Start the wire hardware that may be supported by your platform
+  // NOTE: THIS EXAMPLE WILL FAIL ON A DEVICE THAT ONLY HAS ONE WIRE INTERFACE
 
-  airSensor.begin(Wire1); //Pass the Wire port to the .begin() function
+  Wire1.begin(); // Start the wire hardware that may be supported by your platform
+
+  airSensor.begin(Wire1); // Pass the Wire port to the .begin() function
 
   //The library will now use Wire1 for all communication
 }
