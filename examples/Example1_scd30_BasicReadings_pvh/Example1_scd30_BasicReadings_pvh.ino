@@ -17,37 +17,46 @@
   Open the serial monitor at 9600 baud to see the output
 
   **********************************************************************
-  * modified paulvha : august 2018
+  * Versioning:
   **********************************************************************
-  Support ESP8266-Thing
-  include option to debug driver
-  **********************************************************************
-    
-  Hardware Connections:
-  If needed, attach a Qwiic Shield to your Arduino/Photon/ESP32 or other
-  Plug the device into an available Qwiic port
-  Open the serial monitor at 9600 baud to see the output
+  august 2018 / paulvha:
+    Support ESP8266-Thing
+    include option to debug driver
 
-  ELSE CONNECT TO ARDUINO UNO
-  
+  January 2019 / paulvha
+    Added SoftWire support for ESP32
+  **********************************************************************
+  CONNECT TO ARDUINO
+
   SCD30 :
     VCC to 3V3 or 5V
     GND to GND
     SCL to SCL ( Arduino UNO A4)
     SDA to SDA ( Arduino UNO A5)
 
-  ELSE CONNECT TO ESP8266-THING
+  CONNECT TO ESP8266-THING
 
-  Make sure to cut the link and have a jumper on the DTR/reset. 
+  Make sure to cut the link and have a jumper on the DTR/reset.
   Include the jumper for programming, remove before starting serial monitor
-   
-  SCD30
-    GND TO GND
-    VCC to 3V3
-    SCL to SCL
-    SDA to SDA
-   
+
+  SCD30    ESP8266
+    GND --- GND
+    VCC --- 3V3
+    SCL --- SCL
+    SDA --- SDA
+
   Given that SCD30 is using clock stretching the driver has been modified to deal with that.
+
+  CONNECT TO ESP32-THING
+
+  SCD30    ESP32
+    GND --- GND
+    VCC --- 3V3
+    SCL --- 22
+    SDA --- 21
+
+  Given that SCD30 is using clock stretching SoftWire is selected by the driver to deal with that.
+  Make sure to press the GPIO0 button for connect /upload
 */
 
 //////////////////////////////////////////////////////////////////////////
@@ -63,7 +72,6 @@
 //////////////// NO CHANGES BEYOND THIS POINT NEEDED /////////////////////
 //////////////////////////////////////////////////////////////////////////
 
-#include <Wire.h>
 #include "paulvha_SCD30.h"
 
 SCD30 airSensor;
@@ -73,12 +81,11 @@ void setup()
   Wire.begin();
 
   Serial.begin(9600);
-  Serial.println("SCD30 Example");
-  
-  airSensor.setDebug(scd_debug);
-  
-  airSensor.begin(Wire); //This will cause readings to occur every two seconds
+  Serial.println("SCD30 Example 1");
 
+  airSensor.setDebug(scd_debug);
+
+  airSensor.begin(Wire); //This will cause readings to occur every two seconds
 }
 
 void loop()
