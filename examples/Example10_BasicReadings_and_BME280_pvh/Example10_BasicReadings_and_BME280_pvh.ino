@@ -10,64 +10,78 @@
   Buy a board from SparkFun! https://www.sparkfun.com/products/14751
 
   This example prints the current CO2 level, relative humidity, and temperature in C from the SCD30
+  as well as the BME280 information.
 
   **********************************************************************
-  * modified paulvha : august 2018
+  * Versioning:
   **********************************************************************
-  Added support from BME280 (Combo board: https://www.sparkfun.com/products/14348)
-  Pressure, relative humidity and temperature in C from BME280
-  Perform pressure compensation on the SCD30
-  differences and maximum delta of humidity and temperature
+  august 2018 / paulvha:
+    Support ESP8266-Thing
+    include option to debug driver
+    Added support from BME280 (Combo board: https://www.sparkfun.com/products/14348)
+    Pressure, relative humidity and temperature in C from BME280
+    Perform pressure compensation on the SCD30
+    differences and maximum delta of humidity and temperature
+
+  January 2019 / Paulvha
+    Added option to set BME280 I2C addr. (some use 0x76 instead of 0x77)
+    Added SoftWire support for ESP32
   **********************************************************************
-
-  *********************************************************************
-  * modified paulvha : January 2019
-  *********************************************************************
-  Added option to set BME280 I2C addr. (some use 0x76 instead of 0x77)
-  *********************************************************************
-
-  Hardware Connections:
-  If needed, attach a Qwiic Shield to your Arduino/Photon/ESP32 or other
-  Plug the device into an available Qwiic port
-  Open the serial monitor at 115200 baud to see the output
-
-  ELSE CONNECT TO ARDUINO UNO
+  CONNECT TO ARDUINO
 
   SCD30 :
-    VCC to 3.3V
+    VCC to 3V3 or 5V
     GND to GND
     SCL to SCL ( Arduino UNO A4)
     SDA to SDA ( Arduino UNO A5)
 
-  Combo board:
-    VCC to 3.3V
-    GND to GND
-    SCL to SCL ( Arduino UNO A4)
-    SDA to SDA ( Arduino UNO A5)
+  CONNECT TO ESP8266-THING
 
+  Make sure to cut the link and have a jumper on the DTR/reset.
+  Include the jumper for programming, remove before starting serial monitor
 
-  ELSE CONNECT TO ESP8266-THING
-
-  Make sure to cut the link and have a jumper on the DTR/reset. include the jumper
-  for programming, remove before starting serial monitor
-
-  SCD30
-    GND TO GND
-    Connect VCC to 3V3
-    SCL to SCL
-    SDA to SDA
-
-  Combo board:
-    connect VCC to 3.3V
-    GND to GND
-    SCL to SCL
-    SDA to SDA
-    (wake, rst and int CONNECTIONS ARE NOT USED)
+  SCD30    ESP8266
+    GND --- GND
+    VCC --- 3V3
+    SCL --- SCL
+    SDA --- SDA
 
   Given that SCD30 is using clock stretching the driver has been modified to deal with that.
+
+  CONNECT TO ESP32-THING
+
+  SCD30    ESP32
+    GND --- GND
+    VCC --- 3V3
+    SCL --- 22
+    SDA --- 21
+
+  Given that SCD30 is using clock stretching SoftWire is selected by the driver to deal with that.
+  Make sure to press the GPIO0 button for connect /upload
+
+  NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE
+
+  In case of ESP32, given the SoftWire library, you have to make a change in SparkfunBME280.h.
+  Line 39 states:    #include <Wire.h>
+  Comment that line out : //#include <Wire.h>
+
+  NOW include :
+   #if defined(ARDUINO_ARCH_ESP32)
+   #include <SoftWire/SoftWire.h>
+   #else
+   #include <Wire.h>
+   #endif
+
+  BME280
+   VIN  --- 3V3 or 5V
+   3v3  --- Not Connected
+   GND  --- GND
+   SCK  --- SCL
+   SDO  --- Not Connected
+   SDI  --- SDA
+   CS   --- Not Connected
 */
 
-#include <Wire.h>
 #include "paulvha_SCD30.h"
 #include "SparkFunBME280.h"
 
@@ -111,7 +125,7 @@ void setup()
   Wire.begin();
 
   Serial.begin(115200);
-  Serial.println("\nSCD30 + BME280 Example");
+  Serial.println(F("\nSCD30 + BME280 Example"));
 
   // set driver debug level
   // 0 : no messages
@@ -124,28 +138,39 @@ void setup()
 
   if (mySensor.beginI2C() == false) // Begin communication over I2C
   {
-    Serial.println("The BME280 did not respond. Please check wiring.");
+    Serial.println(F("The BME280 did not respond. Please check wiring."));
   }
   else
   {
+    Serial.println(F("The BME280 detected"));
     detect_BME280 = 1;
   }
 
-  // This will cause readings to occur every two seconds and automatic calibration
+  // This will init the hardware but NOT start automatic reading
   // on an ESP8266 must called last to set the clock stretching correct for SCD30
-  airSensor.begin(Wire);
-  //This will cause SCD30 readings to occur every two seconds
-  if (airSensor.begin() == false)
+  if (airSensor.begin(Wire,false) == false)
   {
-    Serial.println("The SCD30 did not respond. Please check wiring.");
+    Serial.println(F("The SCD30 did not respond. Please check wiring."));
     while(1);
   }
 
   // Read SCD30 serial number as printed on the device
   // buffer MUST be at least 7 digits (6 serial + 0x0)
-  airSensor.getSerialNumber(buf);
-  Serial.print("serial number: ");
-  Serial.println(buf);
+  if (airSensor.getSerialNumber(buf))
+  {
+    Serial.print(F("serial number: "));
+    Serial.println(buf);
+  }
+  else
+    Serial.println(F("could not get Serial number"));
+
+  // This will cause readings to occur every two seconds and automatic calibration
+  // on an ESP8266 must called last to set the clock stretching correct for SCD30
+  if (airSensor.begin() == false)
+  {
+    Serial.println(F("The SCD30 did not respond. Please check wiring."));
+    while(1);
+  }
 }
 
 void loop()
