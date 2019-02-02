@@ -3,19 +3,16 @@ paulvha SCD30 library
 
 Based on the SparkFun SCD30 CO2 Sensor Library, see information below
 
-## Prerequisites
-  * for BME280 (example 10) : https://github.com/sparkfun/SparkFun_BME280_Arduino_Library
-
 ## Versioning
 
-### Modified by paulvha version 10 August, 2018
+Modified by paulvha version 10 August, 2018
 
   Changes:
   * Added ESP8266 board detection in begin() to support the ESP8266 clockstretching
   * Added setting debug messages
   * Added obtaining serial number of SCD-30
   * Added StopMeasurement
-  * Added StartSingleMeasurement
+  * Added StartSingleMeasurement (removed January 2019)
   * Added GetTemperature in Fahrenheit
   * Added CRC checks on different places in de driver
   * Updated existing sketches fom Sparkfun to new library
@@ -24,12 +21,17 @@ Based on the SparkFun SCD30 CO2 Sensor Library, see information below
             Example 11: Set ESP8266 as Access Point and read SCD30 in browser
             Example 12: Set ESP8266 as WIFI server and read SCD30 in browser
 
-### Modified by paulvha version 20 January, 2019
-
-  * Added option in example 10 to set BME280 I2C address. (some use 0x76 instead of 0x77)
-
 More work to be follow on connecting / comparing with other sensors and document the learnings.
 
+Modified by Paulvha version February 2019
+
+ Changes:
+ * Added option in examples 10 and 13 to set BME280 I2C address. (some use 0x76 instead of 0x77)
+ * Added SoftWire (a port of the ESP8266 I2C library) for ESP32 (which does NOT support clockstretching)
+ * Removed StartSingleMeasurement as that is not working in the SCD30 as it should.
+ * Added option to begin() to disable starting measurement. (needed in case one wants to read serial number)
+ * updated the keywords.txt file
+ * updated sketches and library where needed
 
 ============= ORIGINAL INFORMATION FROM SPARKFUN ===========================
 
