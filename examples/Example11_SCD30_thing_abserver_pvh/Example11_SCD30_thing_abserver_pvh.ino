@@ -1,48 +1,48 @@
 /*
  * Based on the https://learn.sparkfun.com/tutorials/esp8266-thing-hookup-guide/example-sketch-ap-web-server
- * 
- * After uploading this sketch, find another device that you can connect to a WiFi network – phone, laptop, etc. 
+ *
+ * After uploading this sketch, find another device that you can connect to a WiFi network – phone, laptop, etc.
  * Look for a network called “ESP8266-SCD30 XXXX”, where XXXX is the last 2 bytes of the Thing’s MAC address.
- * 
+ *
  * The sketch sets the network’s password to “sparkfun”.
- * 
- * After connecting to your Thing’s AP network, load up a browser and point it to 192.168.4.1/read. 
+ *
+ * After connecting to your Thing’s AP network, load up a browser and point it to 192.168.4.1/read.
  * The Thing should serve up a web page showing you its ADC and digital pin 12 readings.
- * 
+ *
  * After that, give 192.168.4.1/led/0 and 192.168.4.1/led/1 a try, and keep an eye on the Thing’s green LED while you do.
- * 
+ *
  * License: MIT. See license file for more information but you can
  * basically do whatever you want with this code.
  *
  * Feel like supporting open source hardware?
  * Buy an SCD30 board from SparkFun! https://www.sparkfun.com/products/14751
  * Buy an ESP8266 THING board from SparkFun!  https://www.sparkfun.com/products/13231
- * 
- * 
+ *
+ *
  **********************************************************************************************************
  * Extended Paulvha : august 2018
- * 
+ *
  * 192.168.4.1/blink : will set a blinking led (to stop sent 192.168.4.1/led/0)
- * 
+ *
  * For SCD30 readings
  * 192.168.4.1/tmp  : will provide the temperature
  * 192.168.4.1/hum  : will provide the humidity
  * 192.168.4.1/CO2  : will provide the CO2 PPM
- * 
+ *
  * This example demonstrates how to connect the SCD30 to an ESP8266 THING, setup as an Access Point and read the results over the network
  *
  * Hardware Connections:
  * Attach the Qwiic Shield to your ESP32866 THING
  * Plug the sensor onto the shield
- *  
+ *
  * ELSE connnect SCD30 as follows
  *   GND TO GND
  *   VCC to 3V3
  *   SCL to SCL
  *   SDA to SDA
- *  
+ *
  *  Given that SCD30 is using clock stretching the driver has been modified to deal with that.
- * 
+ *
  *  THIS SOFTWARE IS PROVIDED BY THE COPYRIGHT HOLDERS AND CONTRIBUTORS "AS IS" AND
  *  ANY EXPRESS OR IMPLIED WARRANTIES, INCLUDING, BUT NOT LIMITED TO, THE IMPLIED
  *  WARRANTIES OF MERCHANTABILITY AND FITNESS FOR A PARTICULAR PURPOSE ARE
@@ -53,11 +53,10 @@
  *  ANY THEORY OF LIABILITY, WHETHER IN CONTRACT, STRICT LIABILITY, OR TORT
  *  (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE OF THIS
  *  SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.
- * 
+ *
  */
 
 #include <ESP8266WiFi.h>
-#include <Wire.h>
 #include "paulvha_SCD30.h"
 
 //////////////////////
@@ -81,7 +80,7 @@ const int DIGITAL_PIN = 12; // Digital pin to be read
 //////////////////////////////////////////////////////////////////////////
 // set SCD30 driver debug level (ONLY NEEDED CASE OF SCD30 ERRORS)      //
 // For debugging : Make sure to cut the link and have a jumper on the   //
-// DTR/reset. Include the jumper for programming, remove before         // 
+// DTR/reset. Include the jumper for programming, remove before         //
 // starting serial monitor on 115000 baud.                              //
 //                                                                      //
 // 0 : no messages                                                      //
@@ -100,7 +99,7 @@ int val, val1;
 float val2;
 int detect_SDC30 = 0;
 
-void setup() 
+void setup()
 {
   initHardware();
   setupWiFi();
@@ -108,11 +107,11 @@ void setup()
   val = -1 ;  // initialize action
 }
 
-void loop() 
+void loop()
 {
   // Check if a client has connected
   WiFiClient client = server.available();
-  
+
   if (!client) {
 
     if ( val == -3 )    // blink was requested earlier
@@ -135,25 +134,25 @@ void loop()
                 // request type (read/set) and value if set.
   if (req.indexOf("/led/0") != -1)
     val = 0; // Will write LED low
-  
+
   else if (req.indexOf("/led/1") != -1)
     val = 1; // Will write LED high
-  
+
   else if (req.indexOf("/read") != -1)
     val = -2; // Will print pin reads
-  
+
   else if (req.indexOf("/blink") != -1)
     val = -3; // Will blink led
-    
+
   else if (req.indexOf("/tmp") != -1)
     val = -4; // Will provided the temp from SCD30
 
   else if (req.indexOf("/hum") != -1)
-    val = -5; // Will provided the humidity from SCD30   
-  
+    val = -5; // Will provided the humidity from SCD30
+
   else if (req.indexOf("/co2") != -1)
     val = -6; // Will provided the Co2 from SCD30
-      
+
   // Otherwise request will be invalid. We'll say as much in HTML
 
   // Set GPIO5 according to the request
@@ -168,7 +167,7 @@ void loop()
   s += "<!DOCTYPE HTML>\r\n<html>\r\n";
   s += "<body>";
   s += "<p><font size=\"20\">";
-  
+
   // If we're setting the LED, print out a message saying we did
   if (val >= 0)
   {
@@ -189,7 +188,7 @@ void loop()
     val1 = 1;
     digitalWrite(LED_PIN, val1);
   }
-  
+
   //SCD30 readings
   else if (val == -4)
   {
@@ -220,7 +219,7 @@ void loop()
   else if (val == -6)
   {
     if (detect_SDC30 == 1)
-    {  
+    {
       s += "CO2 (PPM) = ";
       val2 = airSensor.getCO2();
       s += val2;
@@ -229,12 +228,12 @@ void loop()
     else
       s += "SCD30 not detected";
   }
-  
+
   else
   {
     s += "Invalid Request.<br> Try /led/1, /led/0, / blink, /tmp, /hum, /co2 or /read.";
   }
-  
+
   s += "</font></p>";
   s += "</body>";
   s += "</html>\n";
@@ -244,7 +243,7 @@ void loop()
   delay(1);
   Serial.println("Client disonnected");
 
-  // The client will actually be disconnected 
+  // The client will actually be disconnected
   // when the function returns and 'client' object is detroyed
 }
 
@@ -278,11 +277,11 @@ void initHardware()
   pinMode(DIGITAL_PIN, INPUT_PULLUP);
   pinMode(LED_PIN, OUTPUT);
   digitalWrite(LED_PIN, LOW);
-  // Don't need to set ANALOG_PIN as input, 
+  // Don't need to set ANALOG_PIN as input,
   // that's all it can be.
 
   // setup I2C
-  Wire.begin(); 
+  Wire.begin();
 
   // set SCD30 driver debug level (only in case of errors)
   // requires serial monitor (remove DTR-jumper before starting monitor)
@@ -296,7 +295,7 @@ void initHardware()
   {
     // Pressure adjustment
     airSensor.setAmbientPressure(pressure); //Current ambient pressure in mBar: 700 to 1200
-    
+
     detect_SDC30 = 1;
   }
 }
