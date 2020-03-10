@@ -271,4 +271,4 @@ uint8_t twi_status() {
     return I2C_OK;                           //all ok
 }
 
-#endif ARDUINO_ARCH_ESP32
+#endif //ARDUINO_ARCH_ESP32
