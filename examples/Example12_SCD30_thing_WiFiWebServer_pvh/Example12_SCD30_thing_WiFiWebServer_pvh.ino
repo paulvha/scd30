@@ -23,6 +23,19 @@
  * Hardware Connections:
  * Attach the Qwiic Shield to your ESP32866 THING
  * Plug the sensor onto the shield
+ * pin layout SCD30
+  VDD       1 Supply Voltage ( !!! ON THE CORNER OF THE BOARD !!)
+  GND       2 Ground
+  TX/SCL    3 Transmission line Modbus / Serial clock I2C
+  RX/SDA    4 Receive line Modbus / Serial data I2C
+  RDY       5 Data ready. High when data is ready for read-out  (*1)
+  PWM       6 PWM output of CO2 concentration measurement  (*1)
+              (May2020 : supported  BUT not implemented)
+  SEL       7 Interface select pin. Pull to VDD for selecting Modbus,
+              leave floating or connect to GND for selecting I2C. (*1)
+
+  Note *1 : none of these lines are connected or used
+ *
  *
  * ELSE connnect SCD30 as follows
  *   GND TO GND
@@ -74,6 +87,11 @@ const int LED_PIN = 5;      // Thing's onboard, green LED
 #define scd_debug 0
 
 //////////////////////////////////////////////////////////////////////////
+//                SELECT THE WIRE INTERFACE                             //
+//////////////////////////////////////////////////////////////////////////
+#define SCD30WIRE Wire
+
+//////////////////////////////////////////////////////////////////////////
 //////////////// NO CHANGES BEYOND THIS POINT NEEDED /////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -85,7 +103,7 @@ WiFiServer server(80);
 SCD30 airSensor;
 
 float val2;
-int detect_SDC30 = 0;
+int detect_SCD30 = 0;
 
 void setup() {
 
@@ -166,7 +184,7 @@ void loop() {
   //SCD30 readings
   else if (val == -4)
   {
-    if (detect_SDC30 == 1)
+    if (detect_SCD30 == 1)
     {
       s += "Temperature = ";
       val2 = airSensor.getTemperature();
@@ -179,7 +197,7 @@ void loop() {
 
   else if (val == -5)
   {
-    if (detect_SDC30 == 1)
+    if (detect_SCD30 == 1)
     {
       s += "Humidity = ";
       val2 = airSensor.getHumidity();
@@ -192,7 +210,7 @@ void loop() {
 
   else if (val == -6)
   {
-    if (detect_SDC30 == 1)
+    if (detect_SCD30 == 1)
     {
       s += "CO2 (PPM) = ";
       val2 = airSensor.getCO2();
@@ -249,7 +267,7 @@ void initHardware()
   digitalWrite(LED_PIN, LOW);
 
   // setup I2C
-  Wire.begin();
+  SCD30WIRE.begin();
 
   // set SCD30 driver debug level (only in case of errors)
   // requires serial monitor (remove DTR-jumper before starting monitor)
@@ -258,12 +276,44 @@ void initHardware()
   // 2 : request sending and receiving + show protocol errors
   airSensor.setDebug(scd_debug);
 
-  //This will cause SCD30 readings to occur every two seconds
-  if (airSensor.begin() == true)
+  // This will cause SCD30 readings to occur every two seconds
+  // will init BUT not start reading
+  if (! airSensor.begin(SCD30WIRE, false))
   {
-    // Pressure adjustment
-    airSensor.setAmbientPressure(pressure); //Current ambient pressure in mBar: 700 to 1200
+    Serial.println(F("The SCD30 did not respond. Please check wiring."));
+    while(1);
+  }
+  // display device info
+  DeviceInfo();
 
-    detect_SDC30 = 1;
+  // Pressure adjustment
+  airSensor.setAmbientPressure(pressure); //Current ambient pressure in mBar: 700 to 1200
+
+  detect_SCD30 = 1;
+}
+
+void DeviceInfo()
+{
+  uint8_t val[2];
+  char buf[10];
+
+  // Read SCD30 serial number as printed on the device
+  // buffer MUST be at least 7 digits (6 serial + 0x0)
+  if (airSensor.getSerialNumber(buf))
+  {
+   Serial.print(F("SCD30 serial number : "));
+   Serial.println(buf);
+  }
+
+  // read Firmware level
+  if ( airSensor.getFirmwareLevel(val) ) {
+    Serial.print("SCD30 Firmware level: Major: ");
+    Serial.print(val[0]);
+
+    Serial.print("\t, Minor: ");
+    Serial.println(val[1]);
+  }
+  else {
+    Serial.println("Could not obtain firmware level");
   }
 }

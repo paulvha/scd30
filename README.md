@@ -10,9 +10,9 @@ Modified by paulvha version 10 August, 2018
   Changes:
   * Added ESP8266 board detection in begin() to support the ESP8266 clockstretching
   * Added setting debug messages
-  * Added obtaining serial number of SCD-30
+  * Added obtaining serial number of SCD30
   * Added StopMeasurement
-  * Added StartSingleMeasurement (removed January 2019)
+  * Added StartSingleMeasurement (removed January 2019 as it unstable)
   * Added GetTemperature in Fahrenheit
   * Added CRC checks on different places in de driver
   * Updated existing sketches fom Sparkfun to new library
@@ -33,9 +33,16 @@ Modified by Paulvha version February 2019
  * updated the keywords.txt file
  * updated sketches and library where needed
 
+Modified by Paulvha version August 2020:
+
+ Changes based on Datasheet May 2020
+ * added functions : getForceRecalibration, getMeasurementInterval, getTemperatureOffset, getAltitudeCompensation, getFirmwareLevel
+ * updated the keywords.txt file
+ * added example14 to demonstrate the new functions
+ * A number of library enhancements
+ * updated sketches and library where needed
+
 ============= ORIGINAL INFORMATION FROM SPARKFUN ===========================
-
-
 
 SparkFun SCD30 CO2 Sensor Library
 ===========================================================

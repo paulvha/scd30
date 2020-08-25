@@ -14,12 +14,25 @@
   Hardware Connections:
   Attach the Qwiic Shield to your Arduino/Photon/ESP32 or other
   Plug the sensor onto the shield
-  Serial.print it out at 9600 baud to serial monitor.
+  Serial.print it out at 115200 baud to serial monitor.
 
   NOTE: THIS EXAMPLE WILL FAIL ON A DEVICE THAT ONLY HAS ONE WIRE INTERFACE
 
   Note: 100kHz I2C is fine, but according to the datasheet 400kHz I2C is not supported by the SCD30
 */
+
+//////////////////////////////////////////////////////////////////////////
+// set SCD30 driver debug level (only NEEDED case of errors)            //
+// 0 : no messages                                                      //
+// 1 : request sending and receiving                                    //
+// 2 : request sending and receiving + show protocol errors             //
+//////////////////////////////////////////////////////////////////////////
+#define scd_debug 0
+
+//////////////////////////////////////////////////////////////////////////
+//                SELECT THE WIRE INTERFACE                             //
+//////////////////////////////////////////////////////////////////////////
+#define SCD30WIRE Wire
 
 #include "paulvha_SCD30.h"
 
@@ -27,16 +40,26 @@ SCD30 airSensor;
 
 void setup()
 {
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("SCD30 Example 3");
 
-  // NOTE: THIS EXAMPLE WILL FAIL ON A DEVICE THAT ONLY HAS ONE WIRE INTERFACE
+  // set driver debug level
+  airSensor.setDebug(scd_debug);
 
-  Wire1.begin(); // Start the wire hardware that may be supported by your platform
+  // Start the wire hardware that may be supported by your platform
+  SCD30WIRE.begin();
 
-  airSensor.begin(Wire1); // Pass the Wire port to the .begin() function
+  // This will cause readings to occur every two seconds
+  if (! airSensor.begin(SCD30WIRE))
+  {
+    Serial.println(F("The SCD30 did not respond. Please check wiring."));
+    while(1);
+  }
 
-  //The library will now use Wire1 for all communication
+  // display device information
+  DeviceInfo();
+
+  //The library will now use SCD30WIRE for all communication
 }
 
 void loop()
@@ -58,5 +81,32 @@ void loop()
     Serial.print(".");
 
   delay(1000);
+}
+
+void DeviceInfo()
+{
+  uint8_t val[2];
+  char buf[10];
+
+  // Read SCD30 serial number as printed on the device
+  // buffer MUST be at least 7 digits (6 serial + 0x0)
+
+  if (airSensor.getSerialNumber(buf))
+  {
+   Serial.print(F("SCD30 serial number : "));
+   Serial.println(buf);
+  }
+
+  // read Firmware level
+  if ( airSensor.getFirmwareLevel(val) ) {
+    Serial.print("SCD30 Firmware level: Major: ");
+    Serial.print(val[0]);
+
+    Serial.print("\t, Minor: ");
+    Serial.println(val[1]);
+  }
+  else {
+    Serial.println("Could not obtain firmware level");
+  }
 }
 

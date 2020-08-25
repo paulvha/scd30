@@ -32,7 +32,7 @@
   * Added settting and display debugging
   * Added obtaining serial number of SCD-30
   * Added StopMeasurement
-  * Added StartSingleMeasurement
+  * Added StartSingleMeasurement (!! removed later as it is unstable)
   * Added CRC checks on different places
   * Added getTemperatureF (Fahrenheit)
   *
@@ -46,6 +46,12 @@
   * Removed StartSingleMeasurement as that is not working in the SCD30 as it should.
   * Added option to begin() to disable starting measurement. (needed in case one wants to read serial number)
   * updated the keywords.txt file
+  * updated sketches and library where needed
+  *
+  Changes based on Datasheet May 2020
+  * added functions : getForceRecalibration, getMeasurementInterval, getTemperatureOffset, getAltitudeCompensation, getFirmwareLevel
+  * updated the keywords.txt file
+  * added example14 to demonstrate the new functions
   * updated sketches and library where needed
   *********************************************************************
 */
@@ -88,13 +94,13 @@ boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
    * In the current implementation of the ESP8266 I2C driver there is NO error message when this time expired, while
    * the clock stretch is still happening, causing uncontrolled behaviour of the hardware combination.
    *
-   * Based on debugging and extensive testing/scoping I have seen that the SCD-30 sometimes needs as much as 800us.
+   * Based on debugging and extensive testing/scoping I have seen that the SCD30 sometimes needs as much as 800us.
    *
    * The hardware I2C in an Arduino does NOT have the possibility to set ClockStretchlimit and as such a check for ESP8266 boards
    * has been added in the driver as part of SCD30 begin() call as I did not want to change the default Wire.h and standard I2C
    * for an ESP8266.
    *
-   * This has been created with ESP8266 2.4.2 driver and I expect that new  boards will come available that need to be added later.
+   * This has been created with ESP8266 2.4.2 driver and I expect that new boards will come available that need to be added later.
    * Open de boards.txt of the driver, look for build.board at to the list
    *
    * With setting to 20000, we set a max timeout of 20mS (7x the maximum measured) basically disabling the time-out and now wait
@@ -115,10 +121,10 @@ boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
 #endif
 
   // if measurement is started immediately the serial number can often not be read
-  if(m_begin == false) return(true);
+  if(! m_begin ) return(true);
 
   // Check for device to respond correctly
-  if(beginMeasuring() == true)     //Start continuous measurements
+  if(beginMeasuring())            //Start continuous measurements
   {
     setMeasurementInterval(2);    //2 seconds between measurements
     setAutoSelfCalibration(true); //Enable auto-self-calibration
@@ -134,7 +140,7 @@ boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
 //If the current level has already been reported, trigger a new read
 uint16_t SCD30::getCO2(void)
 {
-  if (co2HasBeenReported == true) //Trigger a new read
+  if (co2HasBeenReported) //Trigger a new read
     readMeasurement(); //Pull in new co2, humidity, and temp into global vars
 
   co2HasBeenReported = true;
@@ -142,13 +148,11 @@ uint16_t SCD30::getCO2(void)
   return (uint16_t)co2; //Cut off decimal as co2 is 0 to 10,000
 }
 
-
-
 //Returns the latest available humidity
 //If the current level has already been reported, trigger a new read
 float SCD30::getHumidity(void)
 {
-  if (humidityHasBeenReported == true) //Trigger a new read
+  if (humidityHasBeenReported) //Trigger a new read
     readMeasurement(); //Pull in new co2, humidity, and temp into global vars
 
   humidityHasBeenReported = true;
@@ -160,7 +164,7 @@ float SCD30::getHumidity(void)
 //If the current level has already been reported, trigger a new read
 float SCD30::getTemperature(void)
 {
-  if (temperatureHasBeenReported == true) //Trigger a new read
+  if (temperatureHasBeenReported) //Trigger a new read
     readMeasurement(); //Pull in new co2, humidity, and temp into global vars
 
   temperatureHasBeenReported = true;
@@ -179,18 +183,101 @@ float SCD30::getTemperatureF(void)
     return output;
 }
 
-/* paulvha : August 2018:  read serial number from SCD30
+/*
+ * Read from SCD30 the amount of requested bytes
+ * param val : to store the data received
+ * param cnt : number of data bytes requested
  *
- * format 9 digits
- *  digit 1
- *  digit 2
- *  crc
- *  digit 3
- *  digit 4
- *  crc
- *  digit 5
- *  digit 6
- *  crc
+ * return
+ * OK number of bytes read
+ * 0  error
+ */
+uint8_t SCD30::ReadFromSCD30(uint16_t command, uint8_t *val, uint8_t cnt)
+{
+   if (cnt > 20 ) return(0); // max 20 data bytes
+
+   // sent request
+   if (! sendCommand(command) ) return(0);
+
+   // Start receiving cnt = data bytes + CRC
+  _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t) (cnt * 3 / 2));
+
+  y = 0;
+
+  if (SCD_DEBUG > 0)  printf("\nReceiving: " );
+
+  // read from buffer
+  if (_i2cPort->available())
+  {
+    for (byte x = 0 ; x < (cnt * 3 / 2) ; x++)
+    {
+      byte incoming = _i2cPort->read();
+
+      if (SCD_DEBUG > 0) printf("0x%02X ", incoming);
+
+      switch (x)
+      {
+        case 0:             // data bytes
+        case 1:
+        case 3:
+        case 4:
+        case 6:
+        case 7:
+        case 9:
+        case 10:
+        case 12:
+        case 13:
+        case 15:
+        case 16:
+        case 18:
+        case 19:
+          *val++ = incoming;
+          data[y++] = incoming;
+          break;
+
+        default:             // handle CRC
+          crc = computeCRC8(data,(uint8_t) 2);
+          if (incoming != crc)
+          {
+            if (SCD_DEBUG > 1) printf("\ncrc error : expected 0x%02X, got 0x%02X\n", crc, incoming);
+            return(0);
+          }
+          y = 0;
+          break;
+       }
+     }
+
+     if (SCD_DEBUG > 0) printf("\n");
+  }
+  else
+  {
+      if (SCD_DEBUG > 1)  printf("\nSensor did not sent anything\n");
+      return(0);
+  }
+
+  return(cnt);
+}
+
+/* get Firmware Level see 1.4.9
+ * Added August 2020
+ *
+ * val[0] MAJOR
+ * val[1] MINOR
+ *
+ */
+boolean SCD30::getFirmwareLevel(uint8_t *val)
+{
+  val[0] = val[1] = 0x0;
+
+  if (SCD_DEBUG > 0)  printf("get Firmware level\n");
+
+  // request from SCD30
+  if (ReadFromSCD30(CMD_GET_FW_LEVEL, val, 2) != 2) return(false);
+
+  return(true);
+}
+
+/* paulvha : August 2018:  read serial number from SCD30
  *
  * provided val buffer must be defined at least 7 digits
  *  6 serial + 0x0 termination
@@ -201,63 +288,10 @@ float SCD30::getTemperatureF(void)
  */
 boolean SCD30::getSerialNumber(char *val)
 {
-  uint8_t data[2];
-  uint8_t crc;
+  // request from SCD30
+  if (ReadFromSCD30(CMD_READ_SERIALNBR, (uint8_t *) val, 6) != 6) return(false);
 
-  if (SCD_DEBUG > 0)
-  {
-       printf("Reading serialnumber from I2C address 0x%x\n",SCD30_ADDRESS);
-  }
-
-  if (sendCommand(CMD_READ_SERIALNBR) == false) return(false);
-
-  // Start receiving
-  _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)9);
-
-  byte y = 0;
-
-  // read from buffer
-  if (_i2cPort->available())
-  {
-    for (byte x = 0 ; x < 9 ; x++)
-    {
-      byte incoming = _i2cPort->read();
-
-      switch (x)
-      {
-        case 0:             // skip CRC
-        case 1:
-        case 3:
-        case 4:
-        case 6:
-        case 7:
-          *val++ = incoming;
-          data[y++] = incoming;
-          break;
-
-        case 2:             // handle CRC
-        case 5:
-        case 8:
-
-          crc = computeCRC8(data,(uint8_t) 2);
-          if (incoming != crc)
-          {
-            if (SCD_DEBUG > 1) printf("crc error : expected %x, got %x\n", crc, incoming);
-            return(false);
-          }
-          y = 0;
-          break;
-       }
-     }
-
-     if (SCD_DEBUG > 0) printf("\n");
-     *val = 0x0; // terminate
-  }
-  else
-  {
-      if (SCD_DEBUG > 1)  printf("Sensor did not sent anything\n");
-      return(false);
-  }
+  val[7] = 0x0; // terminate
 
   return(true);
 }
@@ -278,7 +312,26 @@ boolean SCD30::setAutoSelfCalibration(boolean enable)
     return(sendCommand(COMMAND_AUTOMATIC_SELF_CALIBRATION, 0)); //Deactivate continuous ASC
 }
 
-/* Set the temperature offset. See 1.3.8.
+/* get Temperature Offset see 1.4.7
+ * Added August 2020
+ *
+ */
+boolean SCD30::getTemperatureOffset(uint16_t *val)
+{
+  uint8_t tmp[2];
+  *val =0;
+
+  if (SCD_DEBUG > 0)  printf("Reading Temperature offset\n");
+
+  // request from SCD30
+  if (ReadFromSCD30(COMMAND_SET_TEMPERATURE_OFFSET, tmp, 2) != 2) return(false);
+
+  *val = tmp[0] << 8 | tmp[1];
+
+  return(true);
+}
+
+/* Set the temperature offset. See 1.4.7. updated August 2020
  *
  * Temperature offset value is saved in non-volatile memory.
  * The last set value will be used for temperature offset compensation after repowering.
@@ -286,29 +339,53 @@ boolean SCD30::setAutoSelfCalibration(boolean enable)
  * The ref temperature is based on the temperature underwhich the sensor was calibrated.
  * So if the current temperature is different call this routine to improve the quality of reading.
  *
- * Assume the calibration was done at 27C, current it is 29C the temp offset = 2
+ * Assume the calibration was done at 27C, current it reads 29C the difference is 2C. TO correct you
+ * need to set 2 x 100 = 200 ( as each unit [°C x 100], i.e. one tick corresponds to 0.01°C )
  *
  * August 2018: all this does for now is lower the SCD30 temperature reading to with the offset value
  * over a period of 10 min, while increasing the humidity readings. NO impact on the CO2 readings.
  *
  * The value can NOT be negative as it will cause uncontrolled temperature and humidity results.
  *
- * ( see the document in the extras directory of the driver)
+ * (see the document in the extras directory of the library)
+ *
+ * Param tempoffset :
+ *  to increase the temperature each unit [°C x 100], i.e. one tick corresponds to 0.01°C
+ *
  */
+
+boolean SCD30::setTemperatureOffset(uint16_t tempOffset)
+{
+  return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, tempOffset));
+}
+
+// For backward compatibility
 boolean SCD30::setTemperatureOffset(float tempOffset)
 {
-  // can not be negative number
-  if (tempOffset < 0) return(false);
+  return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, uint16_t (tempOffset * 100)));
+}
 
-  int16_t tickOffset = tempOffset * 100;
+/* get Altitude Compensation see 1.4.8
+ * Added August 2020
+ *
+ */
+boolean SCD30::getAltitudeCompensation(uint16_t *val)
+{
+  uint8_t tmp[2];
+  *val = 0;
 
-  if (SCD_DEBUG > 0) printf("temperuture offset : %d\n", tickOffset);
+  if (SCD_DEBUG > 0)  printf("Reading Altitude compensation\n");
 
-  return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, tickOffset));
+  // request from SCD30
+  if (ReadFromSCD30(COMMAND_SET_ALTITUDE_COMPENSATION, tmp, 2) != 2) return(false);
+
+  *val = tmp[0] << 8 | tmp[1];
+
+  return(true);
 }
 
 
-/* Set the altitude compenstation. See 1.3.9.
+/* Set the altitude compenstation. See 1.4.8.
  *
  * Setting altitude is disregarded when an ambient pressure is given to the sensor,
  * Altitude value is saved in non-volatile memory. The last set value will be used for altitude compensation after repowering.
@@ -330,21 +407,47 @@ boolean SCD30::setAltitudeCompensation(uint16_t altitude)
  */
 boolean SCD30::setAmbientPressure(uint16_t pressure_mbar)
 {
+  if (SCD_DEBUG > 0)  printf("Set Ambient Pressure\n");
+
   return (beginMeasuring(pressure_mbar));
 }
 
-/* Set Forced Recalibration value (FRC) see 1.3.7
+/* Get Forced Recalibration value (FRC) see 1.4.6
+ * Added August 2020
  *
- * Setting a reference CO2 concentration by the here described method will always overwrite the settings from ASC
- * (see chapter 1.3.6) and vice-versa. The reference CO2 concentration has to be within the range 400 ppm ≤ c ref (CO 2 ) ≤ 2000 ppm.
+ * The FRC method imposes a permanent update of the CO2calibration curve which persists after repowering the sensor.
+ * The most recently used reference value is retained in volatile memory and can be read out with the command sequence given below.
+ * After repowering the sensor, the command will return the standard reference value of 400 ppm
+ */
+boolean SCD30::getForceRecalibration(uint16_t *val)
+{
+  uint8_t tmp[2];
+  *val =0;
+
+  if (SCD_DEBUG > 0)  printf("Reading Forced Recalibration Factor\n");
+
+  // request from SCD30
+  if (ReadFromSCD30(COMMAND_SET_FORCED_RECALIBRATION_FACTOR, tmp, 2) != 2) return(false);
+
+  *val = tmp[0] << 8 | tmp[1];
+
+  return(true);
+}
+
+/* Set Forced Recalibration value (FRC) see 1.4.6
+ *
+ * Setting a reference CO2concentration by the method described here will always supersede
+ * corrections from the ASC(see chapter 1.4.6) and vice-versa.
+ * The reference CO2concentration has to be within the range 400 ppm ≤ cref(CO2) ≤2000 ppm
  */
 boolean SCD30::setForceRecalibration(uint16_t val)
 {
+
     if(val < 400 || val > 2000) val = 0;   //Error check
     return (sendCommand(COMMAND_SET_FORCED_RECALIBRATION_FACTOR, val));
 }
 
-/* Begins continuous measurements see 1.3.1
+/* Begins continuous measurements see 1.4.1
  *
  * Continuous measurement status is saved in non-volatile memory. When the sensor
  * is powered down while continuous measurement mode is active SCD30 will measure
@@ -366,7 +469,7 @@ boolean SCD30::beginMeasuring(void)
   return(beginMeasuring(0));
 }
 
-/* Stop continuous measurement. see 1.3.2
+/* Stop continuous measurement. see 1.4.2
  * return:
  *  true = OK
  *  false  = error
@@ -374,6 +477,26 @@ boolean SCD30::beginMeasuring(void)
 boolean SCD30::StopMeasurement(void)
 {
   return(sendCommand(CMD_STOP_MEAS));
+}
+
+/* Get Measurement Interval see 1.4.3
+ * Added August 2020
+ *
+ * Interval in seconds.Available range:[2 ... 1800] given in 2 byte in the order MSB, LSB
+ */
+boolean SCD30::getMeasurementInterval(uint16_t *val)
+{
+  uint8_t tmp[2];
+  *val = 0;
+
+  if (SCD_DEBUG > 0) printf("Read measurement interval \n");
+
+  // request from SCD30
+  if (ReadFromSCD30(COMMAND_SET_MEASUREMENT_INTERVAL, tmp, 2) != 2) return(false);
+
+  *val = tmp[0] << 8 | tmp[1];
+
+  return(true);
 }
 
 /* Sets interval between measurements
@@ -384,111 +507,48 @@ boolean SCD30::StopMeasurement(void)
  */
 boolean SCD30::setMeasurementInterval(uint16_t interval)
 {
+  if (SCD_DEBUG > 0) printf("set measurement interval \n");
+
   if (interval < 2 || interval > 1800) return(false);
   return(sendCommand(COMMAND_SET_MEASUREMENT_INTERVAL, interval));
 }
 
-// Returns true when data is available. see 1.3.4
+// Returns true when data is available. see 1.4.5
 boolean SCD30::dataAvailable()
 {
-  uint16_t response = readRegister(COMMAND_GET_DATA_READY);
+  uint8_t tmp[2];
 
-  if (response == 1) return (true);
+  // request from SCD30
+  if (ReadFromSCD30(COMMAND_GET_DATA_READY, tmp, 2) != 2) return(false);
+
+  if (tmp[1] == 1) return(true);
+
   return (false);
 }
 
-//Get 18 bytes from SCD30. see 1.3.5
+//Get 18 bytes from SCD30. see 1.4.5
 
 //Updates global variables with floats
 //Returns true if success
 boolean SCD30::readMeasurement()
 {
-  uint8_t data[2];
-  uint8_t crc, y;;
   uint32_t tempCO2 = 0;
   uint32_t tempHumidity = 0;
   uint32_t tempTemperature = 0;
+  uint8_t  temp[12];
 
   //Verify we have data from the sensor
-  if (dataAvailable() == false)
-    return (false);
+  if (! dataAvailable() ) return (false);
+
+  // request from SCD30
+  if (ReadFromSCD30(COMMAND_READ_MEASUREMENT, temp, 12) != 12) return(false);
+
+  tempCO2 = temp[0] << 24 | temp[1] << 16 | temp[2] << 8 | temp[3];
+  tempTemperature = temp[4] << 24 | temp[5] << 16 | temp[6] << 8 | temp[7];
+  tempHumidity  = temp[8] << 24 | temp[9] << 16 | temp[10] << 8 | temp[11];
 
   if (SCD_DEBUG > 0)
-  {
-       printf("Reading measurement from I2C address 0x%x. ",SCD30_ADDRESS);
-  }
-
-  if (sendCommand(COMMAND_READ_MEASUREMENT) == false) return(false);
-
-  // start receiving
-  _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)18);
-
-  y = 0;
-
-  // check buffer
-  if (_i2cPort->available())
-  {
-    for (byte x = 0 ; x < 18 ; x++)
-    {
-      // read from buffer
-      byte incoming = _i2cPort->read();
-
-      switch (x)
-      {
-        case 0:
-        case 1:
-        case 3:
-        case 4:
-          data[y++] = incoming;     // for crc
-          tempCO2 <<= 8;
-          tempCO2 |= incoming;
-          if (SCD_DEBUG > 0)
-          {
-              if (x == 0)  printf(" CO2 : ");
-              if (x == 4)  printf("0x%4x ", tempCO2);
-          }
-          break;
-        case 6:
-        case 7:
-        case 9:
-        case 10:
-          data[y++] = incoming;     // for crc
-          tempTemperature <<= 8;
-          tempTemperature |= incoming;
-
-          if (SCD_DEBUG > 0)
-          {
-              if (x == 6)  printf(" temperature : ");
-              if (x == 10)  printf("0x%x %x ", tempTemperature & 0xfff, tempTemperature );
-          }
-
-          break;
-        case 12:
-        case 13:
-        case 15:
-        case 16:
-          data[y++] = incoming;     // for crc
-          tempHumidity <<= 8;
-          tempHumidity |= incoming;
-          if (SCD_DEBUG > 0)
-          {
-              if (x == 12)  printf(" humidity : ");
-              if (x == 16)  printf("0x%4x\n", tempHumidity);
-          }
-
-          break;
-        default:    // check CRC
-          crc = computeCRC8(data, 2);
-          if (incoming != crc)
-          {
-            if (SCD_DEBUG > 1) printf("crc error: expected %x, got %x\n", crc, incoming);
-            return(false);
-          }
-          y = 0;
-          break;
-      }
-    }
-  }
+      printf(" CO2 : 0x%04X, Temperature 0x%04X, Humidity 0x%04X\n",tempCO2, tempTemperature, tempHumidity  );
 
   //Now copy the uint32s into their associated floats
   memcpy(&co2, &tempCO2, sizeof(co2));
@@ -501,48 +561,6 @@ boolean SCD30::readMeasurement()
   temperatureHasBeenReported = false;
 
   return (true); //Success! New data available in globals.
-}
-
-/* Gets two bytes from SCD30
- * input: registerAddress to read
- *
- * output : value of 0 in case of error
- */
-uint16_t SCD30::readRegister(uint16_t registerAddress)
-{
-   // load the I2C driver buffer
-  _i2cPort->beginTransmission(SCD30_ADDRESS);
-  _i2cPort->write(registerAddress >> 8); //MSB
-  _i2cPort->write(registerAddress & 0xFF); //LSB
-
-  if (SCD_DEBUG > 0)
-  {
-       printf("Reading from address 0x%x, register 0x%2x, ",SCD30_ADDRESS,registerAddress);
-  }
-
-  // now that all is in the buffer, start sending request and  end transmission
-  if (_i2cPort->endTransmission() != 0)
-  {
-    if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
-    return (0);
-  }
-
-  // Start receiving
-  _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t)2);
-
-  // read from I2C buffer
-  if (_i2cPort->available())
-  {
-    uint8_t msb = _i2cPort->read();
-    uint8_t lsb = _i2cPort->read();
-
-    if (SCD_DEBUG > 0)  printf("Received: 0x%x\n", msb << 8 | lsb);
-    return ((uint16_t)msb << 8 | lsb);
-  }
-
-  if (SCD_DEBUG > 1)  printf("Sensor did not respond\n");
-
-  return (0); //Sensor did not respond
 }
 
 /* Paulvha : august 2018
@@ -565,7 +583,7 @@ void SCD30::setDebug(int val)
  * decode the command that is being sent */
 void SCD30::debug_cmd(uint16_t command)
 {
-    printf("Command 0x%x : ", command);
+    printf("Command 0x%X : ", command);
 
     switch(command)
     {
@@ -605,8 +623,11 @@ void SCD30::debug_cmd(uint16_t command)
         case 0x0006:
             printf("CMD_START_SINGLE_MEAS");
             break;
+        case 0xD100:
+            printf("CMD_GET_FW_LEVEL");
+            break;
         default:
-            printf("COMMAND_UNKNOWN");
+            printf("0x%04X : COMMAND_UNKNOWN");
             break;
     }
 }

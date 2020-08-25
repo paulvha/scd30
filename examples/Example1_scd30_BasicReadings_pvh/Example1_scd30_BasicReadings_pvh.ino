@@ -14,7 +14,7 @@
   Hardware Connections:
   If needed, attach a Qwiic Shield to your Arduino/Photon/ESP32 or other
   Plug the device into an available Qwiic port
-  Open the serial monitor at 9600 baud to see the output
+  Open the serial monitor at 115200 baud to see the output
 
   **********************************************************************
   * Versioning:
@@ -26,6 +26,19 @@
   January 2019 / paulvha
     Added SoftWire support for ESP32
   **********************************************************************
+    pin layout SCD30
+  VDD       1 Supply Voltage ( !!! ON THE CORNER OF THE BOARD !!)
+  GND       2 Ground
+  TX/SCL    3 Transmission line Modbus / Serial clock I2C
+  RX/SDA    4 Receive line Modbus / Serial data I2C
+  RDY       5 Data ready. High when data is ready for read-out  (*1)
+  PWM       6 PWM output of CO2 concentration measurement  (*1)
+              (May2020 : supported  BUT not implemented)
+  SEL       7 Interface select pin. Pull to VDD for selecting Modbus,
+              leave floating or connect to GND for selecting I2C. (*1)
+
+  Note *1 : none of these lines are connected or used.
+
   CONNECT TO ARDUINO
 
   SCD30 :
@@ -69,6 +82,11 @@
 #define scd_debug 0
 
 //////////////////////////////////////////////////////////////////////////
+//                SELECT THE WIRE INTERFACE                             //
+//////////////////////////////////////////////////////////////////////////
+#define SCD30WIRE Wire
+
+//////////////////////////////////////////////////////////////////////////
 //////////////// NO CHANGES BEYOND THIS POINT NEEDED /////////////////////
 //////////////////////////////////////////////////////////////////////////
 
@@ -78,14 +96,22 @@ SCD30 airSensor;
 
 void setup()
 {
-  Wire.begin();
+  SCD30WIRE.begin();
 
-  Serial.begin(9600);
+  Serial.begin(115200);
   Serial.println("SCD30 Example 1");
 
   airSensor.setDebug(scd_debug);
 
-  airSensor.begin(Wire); //This will cause readings to occur every two seconds
+  //This will cause readings to occur every two seconds
+  if (! airSensor.begin(SCD30WIRE))
+  {
+    Serial.println(F("The SCD30 did not respond. Please check wiring."));
+    while(1);
+  }
+
+  // display device info
+  DeviceInfo();
 }
 
 void loop()
@@ -107,4 +133,31 @@ void loop()
     Serial.println("No data");
 
   delay(2000);
+}
+
+void DeviceInfo()
+{
+  uint8_t val[2];
+  char buf[10];
+
+  // Read SCD30 serial number as printed on the device
+  // buffer MUST be at least 7 digits (6 serial + 0x0)
+
+  if (airSensor.getSerialNumber(buf))
+  {
+   Serial.print(F("SCD30 serial number : "));
+   Serial.println(buf);
+  }
+
+  // read Firmware level
+  if ( airSensor.getFirmwareLevel(val) ) {
+    Serial.print("SCD30 Firmware level: Major: ");
+    Serial.print(val[0]);
+
+    Serial.print("\t, Minor: ");
+    Serial.println(val[1]);
+  }
+  else {
+    Serial.println("Could not obtain firmware level");
+  }
 }

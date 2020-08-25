@@ -1,6 +1,6 @@
 #######################################
 # Syntax Coloring Map
-# SCD30  // pauvha January 2019
+# SCD30  // pauvha August 2020
 # based on Sparkfun SCD30 driver
 #######################################
 
@@ -31,6 +31,12 @@ StartSingleMeasurement	KEYWORD2
 getSerialNumber	KEYWORD2
 StopMeasurement	KEYWORD2
 dataAvailable	KEYWORD2
+getForceRecalibration	KEYWORD2
+getMeasurementInterval	KEYWORD2
+getTemperatureOffset	KEYWORD2
+getAltitudeCompensation	KEYWORD2
+getFirmwareLevel	KEYWORD2
+
 
 #######################################
 # Constants (LITERAL1)

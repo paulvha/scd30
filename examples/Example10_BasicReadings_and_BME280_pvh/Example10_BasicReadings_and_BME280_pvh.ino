@@ -27,6 +27,21 @@
     Added option to set BME280 I2C addr. (some use 0x76 instead of 0x77)
     Added SoftWire support for ESP32
   **********************************************************************
+
+  pin layout SCD30
+  VDD       1 Supply Voltage ( !!! ON THE CORNER OF THE BOARD !!)
+  GND       2 Ground
+  TX/SCL    3 Transmission line Modbus / Serial clock I2C
+  RX/SDA    4 Receive line Modbus / Serial data I2C
+  RDY       5 Data ready. High when data is ready for read-out  (*1)
+  PWM       6 PWM output of CO2 concentration measurement  (*1)
+              (May2020 : supported  BUT not implemented)
+  SEL       7 Interface select pin. Pull to VDD for selecting Modbus,
+              leave floating or connect to GND for selecting I2C. (*1)
+
+  Note *1 : none of these lines are connected or used
+
+
   CONNECT TO ARDUINO
 
   SCD30 :
@@ -100,6 +115,11 @@
 ///////////////////////////////////////////////////////////////////////
 #define I2CADDR 0x77
 
+//////////////////////////////////////////////////////////////////////////
+//                SELECT THE WIRE INTERFACE                             //
+//////////////////////////////////////////////////////////////////////////
+#define SCD30WIRE Wire
+
 ///////////////////////////////////////////////////////////////////////
 //////////////// NO CHANGES BEYOND THIS POINT NEEDED //////////////////
 ///////////////////////////////////////////////////////////////////////
@@ -120,9 +140,7 @@ int detect_BME280 = 0;
 
 void setup()
 {
-  char buf[10];
-
-  Wire.begin();
+  SCD30WIRE.begin();
 
   Serial.begin(115200);
   Serial.println(F("\nSCD30 + BME280 Example"));
@@ -136,7 +154,7 @@ void setup()
   // set I2C address. default is 0x77
   mySensor.setI2CAddress(I2CADDR);
 
-  if (mySensor.beginI2C() == false) // Begin communication over I2C
+  if (! mySensor.beginI2C() ) // Begin communication over I2C
   {
     Serial.println(F("The BME280 did not respond. Please check wiring."));
   }
@@ -146,31 +164,16 @@ void setup()
     detect_BME280 = 1;
   }
 
-  // This will init the hardware but NOT start automatic reading
+  // This will init the hardware start automatic reading
   // on an ESP8266 must called last to set the clock stretching correct for SCD30
-  if (airSensor.begin(Wire,false) == false)
+  if (! airSensor.begin(SCD30WIRE) )
   {
     Serial.println(F("The SCD30 did not respond. Please check wiring."));
     while(1);
   }
 
-  // Read SCD30 serial number as printed on the device
-  // buffer MUST be at least 7 digits (6 serial + 0x0)
-  if (airSensor.getSerialNumber(buf))
-  {
-    Serial.print(F("serial number: "));
-    Serial.println(buf);
-  }
-  else
-    Serial.println(F("could not get Serial number"));
-
-  // This will cause readings to occur every two seconds and automatic calibration
-  // on an ESP8266 must called last to set the clock stretching correct for SCD30
-  if (airSensor.begin() == false)
-  {
-    Serial.println(F("The SCD30 did not respond. Please check wiring."));
-    while(1);
-  }
+  // get Device information
+  DeviceInfo();
 }
 
 void loop()
@@ -263,6 +266,33 @@ void loop()
 
   // only every 2 seconds is data available
   delay(2000);
+}
+
+void DeviceInfo()
+{
+  uint8_t val[2];
+  char buf[10];
+
+  // Read SCD30 serial number as printed on the device
+  // buffer MUST be at least 7 digits (6 serial + 0x0)
+
+  if (airSensor.getSerialNumber(buf))
+  {
+   Serial.print(F("SCD30 serial number : "));
+   Serial.println(buf);
+  }
+
+  // read Firmware level
+  if ( airSensor.getFirmwareLevel(val) ) {
+    Serial.print("SCD30 Firmware level: Major: ");
+    Serial.print(val[0]);
+
+    Serial.print("\t, Minor: ");
+    Serial.println(val[1]);
+  }
+  else {
+    Serial.println("Could not obtain firmware level");
+  }
 }
 
 /* serialTrigger prints a message, then waits for something

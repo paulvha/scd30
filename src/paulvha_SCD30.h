@@ -45,6 +45,15 @@
  * Added option to begin() to disable starting measurement. (needed in case one wants to read serial number)
  * updated the keywords.txt file
  * updated sketches and library where needed
+ *
+  Modified by Paulvha version August 2020
+
+ changes based on Datasheet May 2020
+ * added functions : getForceRecalibration, getMeasurementInterval, getTemperatureOffset, getAltitudeCompensation, getFirmwareLevel
+ * updated the keywords.txt file
+ * added example14 to demonstrate the new functions
+ * updated sketches and library where needed
+ *
   *********************************************************************
 */
 
@@ -71,7 +80,6 @@
 #define SCD30_ADDRESS 0x61
 
 //Available commands
-
 #define COMMAND_CONTINUOUS_MEASUREMENT  0x0010
 #define COMMAND_SET_MEASUREMENT_INTERVAL 0x4600
 #define COMMAND_GET_DATA_READY 0x0202
@@ -83,6 +91,7 @@
 #define CMD_READ_SERIALNBR 0xD033
 #define CMD_START_SINGLE_MEAS 0x0006
 #define CMD_STOP_MEAS 0x0104
+#define CMD_GET_FW_LEVEL 0xD100                     // added August 2020
 
 class SCD30
 {
@@ -101,8 +110,15 @@ class SCD30
          * boolean StartSingleMeasurement(void);
          */
 
-        // paulvha : added get serial number
+        // paulvha : added get serial number August 2018
         boolean getSerialNumber(char *val);
+
+        // paulvha : added August 2020
+        boolean getForceRecalibration(uint16_t *val);
+        boolean getMeasurementInterval(uint16_t *val);
+        boolean getTemperatureOffset(uint16_t *val);
+        boolean getAltitudeCompensation(uint16_t *val);
+        boolean getFirmwareLevel(uint8_t *val);
 
         uint16_t getCO2(void);
         float getHumidity(void);
@@ -114,6 +130,7 @@ class SCD30
         boolean setAltitudeCompensation(uint16_t altitude);
         boolean setAutoSelfCalibration(boolean enable);
         boolean setForceRecalibration(uint16_t val);
+        boolean setTemperatureOffset(uint16_t tempOffset);
         boolean setTemperatureOffset(float tempOffset);
 
         boolean dataAvailable();
@@ -126,10 +143,11 @@ class SCD30
         boolean readMeasurement();
         boolean sendCommand(uint16_t command, uint16_t arguments);
         boolean sendCommand(uint16_t command);
-
-        uint16_t readRegister(uint16_t registerAddress);
+        uint8_t ReadFromSCD30(uint16_t command, uint8_t *val, uint8_t cnt);
+        //uint16_t readRegister(uint16_t registerAddress);
 
         uint8_t computeCRC8(uint8_t data[], uint8_t len);
+
         // paulvha : added for debug messages
         void debug_cmd(uint16_t command);
 
@@ -146,4 +164,7 @@ class SCD30
         boolean co2HasBeenReported = true;
         boolean humidityHasBeenReported = true;
         boolean temperatureHasBeenReported = true;
+
+        uint8_t data[2];
+        uint8_t crc, y;
 };
