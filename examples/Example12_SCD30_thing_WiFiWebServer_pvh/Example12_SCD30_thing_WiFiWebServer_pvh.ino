@@ -295,10 +295,10 @@ void initHardware()
 void DeviceInfo()
 {
   uint8_t val[2];
-  char buf[10];
+  char buf[(SCD30_SERIAL_NUM_WORDS * 2) +1];
 
   // Read SCD30 serial number as printed on the device
-  // buffer MUST be at least 7 digits (6 serial + 0x0)
+  // buffer MUST be at least 33 digits (32 serial + 0x0)
   if (airSensor.getSerialNumber(buf))
   {
    Serial.print(F("SCD30 serial number : "));

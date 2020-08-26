@@ -35,7 +35,6 @@
   * Added StartSingleMeasurement (!! removed later as it is unstable)
   * Added CRC checks on different places
   * Added getTemperatureF (Fahrenheit)
-  *
   * Added check on Temperature offset
 
   Modified by Paulvha version February 2019
@@ -48,11 +47,13 @@
   * updated the keywords.txt file
   * updated sketches and library where needed
   *
+  Modified by Paulvha version August 2020
+
   Changes based on Datasheet May 2020
   * added functions : getForceRecalibration, getMeasurementInterval, getTemperatureOffset, getAltitudeCompensation, getFirmwareLevel
   * updated the keywords.txt file
   * added example14 to demonstrate the new functions
-  * updated sketches and library where needed
+  * updated sketches (Deviceinfo() and library routines where needed
   *********************************************************************
 */
 
@@ -183,8 +184,7 @@ float SCD30::getTemperatureF(void)
     return output;
 }
 
-/*
- * Read from SCD30 the amount of requested bytes
+/* Read from SCD30 the amount of requested bytes
  * param val : to store the data received
  * param cnt : number of data bytes requested
  *
@@ -194,56 +194,42 @@ float SCD30::getTemperatureF(void)
  */
 uint8_t SCD30::ReadFromSCD30(uint16_t command, uint8_t *val, uint8_t cnt)
 {
-   if (cnt > 20 ) return(0); // max 20 data bytes
+   uint8_t data[2], crc, y, x;
 
    // sent request
    if (! sendCommand(command) ) return(0);
 
+   delay(3);  // delay 3mS - datasheet May 2020
+
    // Start receiving cnt = data bytes + CRC
   _i2cPort->requestFrom((uint8_t)SCD30_ADDRESS, (uint8_t) (cnt * 3 / 2));
-
-  y = 0;
 
   if (SCD_DEBUG > 0)  printf("\nReceiving: " );
 
   // read from buffer
   if (_i2cPort->available())
   {
-    for (byte x = 0 ; x < (cnt * 3 / 2) ; x++)
+    for (x = 0, y = 0 ; x < (cnt * 3 / 2) ; x++)
     {
       byte incoming = _i2cPort->read();
 
-      if (SCD_DEBUG > 0) printf("0x%02X ", incoming);
+      if (SCD_DEBUG > 0) printf("x %d, 0x%02X ",x , incoming);
 
-      switch (x)
-      {
-        case 0:             // data bytes
-        case 1:
-        case 3:
-        case 4:
-        case 6:
-        case 7:
-        case 9:
-        case 10:
-        case 12:
-        case 13:
-        case 15:
-        case 16:
-        case 18:
-        case 19:
-          *val++ = incoming;
-          data[y++] = incoming;
-          break;
+      if (y == 2) {           // handle CRC
 
-        default:             // handle CRC
           crc = computeCRC8(data,(uint8_t) 2);
           if (incoming != crc)
           {
             if (SCD_DEBUG > 1) printf("\ncrc error : expected 0x%02X, got 0x%02X\n", crc, incoming);
             return(0);
           }
+
           y = 0;
-          break;
+      }
+      else {                  // handle data
+
+          *val++ = incoming;
+          data[y++] = incoming;
        }
      }
 
@@ -289,15 +275,14 @@ boolean SCD30::getFirmwareLevel(uint8_t *val)
 boolean SCD30::getSerialNumber(char *val)
 {
   // request from SCD30
-  if (ReadFromSCD30(CMD_READ_SERIALNBR, (uint8_t *) val, 6) != 6) return(false);
+  if (ReadFromSCD30(CMD_READ_SERIALNBR, (uint8_t *) val, SCD30_SERIAL_NUM_WORDS * 2) != SCD30_SERIAL_NUM_WORDS * 2) return(false);
 
-  val[7] = 0x0; // terminate
+  val[(SCD30_SERIAL_NUM_WORDS * 2) + 1] = 0x0; // terminate
 
   return(true);
 }
 
-
-/* Enables or disables the ASC See 1.3.6
+/* Enables or disables the ASC See 1.4.6
  *
  * ASC status is saved in non-volatile memory. When the sensor is powered down while ASC is activated SCD30
  * will continue with automatic self-calibration after repowering without sending the command.
@@ -310,25 +295,6 @@ boolean SCD30::setAutoSelfCalibration(boolean enable)
     return(sendCommand(COMMAND_AUTOMATIC_SELF_CALIBRATION, 1)); //Activate continuous ASC
   else
     return(sendCommand(COMMAND_AUTOMATIC_SELF_CALIBRATION, 0)); //Deactivate continuous ASC
-}
-
-/* get Temperature Offset see 1.4.7
- * Added August 2020
- *
- */
-boolean SCD30::getTemperatureOffset(uint16_t *val)
-{
-  uint8_t tmp[2];
-  *val =0;
-
-  if (SCD_DEBUG > 0)  printf("Reading Temperature offset\n");
-
-  // request from SCD30
-  if (ReadFromSCD30(COMMAND_SET_TEMPERATURE_OFFSET, tmp, 2) != 2) return(false);
-
-  *val = tmp[0] << 8 | tmp[1];
-
-  return(true);
 }
 
 /* Set the temperature offset. See 1.4.7. updated August 2020
@@ -353,7 +319,6 @@ boolean SCD30::getTemperatureOffset(uint16_t *val)
  *  to increase the temperature each unit [°C x 100], i.e. one tick corresponds to 0.01°C
  *
  */
-
 boolean SCD30::setTemperatureOffset(uint16_t tempOffset)
 {
   return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, tempOffset));
@@ -365,25 +330,25 @@ boolean SCD30::setTemperatureOffset(float tempOffset)
   return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, uint16_t (tempOffset * 100)));
 }
 
-/* get Altitude Compensation see 1.4.8
- * Added August 2020
+/* read 16 bit value from a register
+ * @param command :  command to sent
+ * @param val : return the read 16 bit value
  *
+ * @return
+ * true is OK, false error
  */
-boolean SCD30::getAltitudeCompensation(uint16_t *val)
+bool SCD30::getSettingValue(uint16_t command, uint16_t *val)
 {
   uint8_t tmp[2];
   *val = 0;
 
-  if (SCD_DEBUG > 0)  printf("Reading Altitude compensation\n");
-
   // request from SCD30
-  if (ReadFromSCD30(COMMAND_SET_ALTITUDE_COMPENSATION, tmp, 2) != 2) return(false);
+  if (ReadFromSCD30(command, tmp, 2) != 2) return(false);
 
   *val = tmp[0] << 8 | tmp[1];
 
   return(true);
 }
-
 
 /* Set the altitude compenstation. See 1.4.8.
  *
@@ -412,28 +377,6 @@ boolean SCD30::setAmbientPressure(uint16_t pressure_mbar)
   return (beginMeasuring(pressure_mbar));
 }
 
-/* Get Forced Recalibration value (FRC) see 1.4.6
- * Added August 2020
- *
- * The FRC method imposes a permanent update of the CO2calibration curve which persists after repowering the sensor.
- * The most recently used reference value is retained in volatile memory and can be read out with the command sequence given below.
- * After repowering the sensor, the command will return the standard reference value of 400 ppm
- */
-boolean SCD30::getForceRecalibration(uint16_t *val)
-{
-  uint8_t tmp[2];
-  *val =0;
-
-  if (SCD_DEBUG > 0)  printf("Reading Forced Recalibration Factor\n");
-
-  // request from SCD30
-  if (ReadFromSCD30(COMMAND_SET_FORCED_RECALIBRATION_FACTOR, tmp, 2) != 2) return(false);
-
-  *val = tmp[0] << 8 | tmp[1];
-
-  return(true);
-}
-
 /* Set Forced Recalibration value (FRC) see 1.4.6
  *
  * Setting a reference CO2concentration by the method described here will always supersede
@@ -442,7 +385,6 @@ boolean SCD30::getForceRecalibration(uint16_t *val)
  */
 boolean SCD30::setForceRecalibration(uint16_t val)
 {
-
     if(val < 400 || val > 2000) val = 0;   //Error check
     return (sendCommand(COMMAND_SET_FORCED_RECALIBRATION_FACTOR, val));
 }
@@ -479,25 +421,6 @@ boolean SCD30::StopMeasurement(void)
   return(sendCommand(CMD_STOP_MEAS));
 }
 
-/* Get Measurement Interval see 1.4.3
- * Added August 2020
- *
- * Interval in seconds.Available range:[2 ... 1800] given in 2 byte in the order MSB, LSB
- */
-boolean SCD30::getMeasurementInterval(uint16_t *val)
-{
-  uint8_t tmp[2];
-  *val = 0;
-
-  if (SCD_DEBUG > 0) printf("Read measurement interval \n");
-
-  // request from SCD30
-  if (ReadFromSCD30(COMMAND_SET_MEASUREMENT_INTERVAL, tmp, 2) != 2) return(false);
-
-  *val = tmp[0] << 8 | tmp[1];
-
-  return(true);
-}
 
 /* Sets interval between measurements
  * 2 seconds to 1800 seconds (30 minutes)
@@ -632,23 +555,30 @@ void SCD30::debug_cmd(uint16_t command)
     }
 }
 
-/* Sends a command along with arguments and CRC
+/* Sends a command
+ *
+ * if arg == true : along with arguments and CRC
+ *
  * return
  *  true = OK
  *  false = error
  */
-boolean SCD30::sendCommand(uint16_t command, uint16_t arguments)
+boolean SCD30::sendCommand(uint16_t command, uint16_t arguments, bool arg)
 {
-  uint8_t data[2];
-  data[0] = arguments >> 8;
-  data[1] = arguments & 0xFF;
-  uint8_t crc = computeCRC8(data, 2); //Calc CRC on the arguments only, not the command
+  uint8_t data[2], crc;
 
-  if (SCD_DEBUG > 0)
-  {
-       printf("sending to I2C address 0x%x, ",SCD30_ADDRESS);
-       debug_cmd(command);
-       printf(", arguments 0x%x, CRC 0x%x\n",arguments, crc);
+  if (arg) {
+    data[0] = arguments >> 8;
+    data[1] = arguments & 0xFF;
+    crc = computeCRC8(data, 2); //Calc CRC on the arguments only, not the command
+  }
+
+  if (SCD_DEBUG > 0) {
+    printf("sending to I2C address 0x%x, ",SCD30_ADDRESS);
+    debug_cmd(command);
+
+    if (arg) printf(", arguments 0x%x, CRC 0x%x\n",arguments, crc);
+    else printf("\n");
   }
 
   // load the I2C driver buffer
@@ -656,42 +586,31 @@ boolean SCD30::sendCommand(uint16_t command, uint16_t arguments)
   _i2cPort->write(command >> 8); //MSB
   _i2cPort->write(command & 0xFF); //LSB
 
-  _i2cPort->write(arguments >> 8); //MSB
-  _i2cPort->write(arguments & 0xFF); //LSB
-  _i2cPort->write(crc);
+  if (arg) {
+    _i2cPort->write(arguments >> 8); //MSB
+    _i2cPort->write(arguments & 0xFF); //LSB
+    _i2cPort->write(crc);
+  }
 
   // now that all is in the buffer, start sending and end transmission
-  if (_i2cPort->endTransmission() != 0)
-  {
-      if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
-      return (false); //Sensor did not ACK
+  if (_i2cPort->endTransmission() != 0) {
+    if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
+    return (false); //Sensor did not ACK
   }
 
   return (true);
 }
 
+// Sends a command & arguments & crc
+boolean SCD30::sendCommand(uint16_t command, uint16_t arguments)
+{
+  return(sendCommand(command, arguments, true));
+}
+
 // Sends just a command, no arguments, no CRC
 boolean SCD30::sendCommand(uint16_t command)
 {
-  if (SCD_DEBUG > 0)
-  {
-       printf("sending to I2C address 0x%x, ",SCD30_ADDRESS);
-       debug_cmd(command);
-   }
-
-  // load the I2C driver buffer
-  _i2cPort->beginTransmission(SCD30_ADDRESS);
-  _i2cPort->write(command >> 8); //MSB
-  _i2cPort->write(command & 0xFF); //LSB
-
-  // now that all is in the buffer, start sending and end transmission
-  if (_i2cPort->endTransmission() != 0)
-  {
-    if (SCD_DEBUG > 1)  printf("Sensor did not ACK\n");
-    return (false);
-  }
-
-  return (true);
+  return(sendCommand(command, 0, false));
 }
 
 //Given an array and a number of bytes, this calculate CRC8 for those bytes

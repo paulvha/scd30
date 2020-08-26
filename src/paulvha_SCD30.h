@@ -89,9 +89,14 @@
 #define COMMAND_SET_TEMPERATURE_OFFSET 0x5403
 #define COMMAND_SET_ALTITUDE_COMPENSATION 0x5102
 #define CMD_READ_SERIALNBR 0xD033
-#define CMD_START_SINGLE_MEAS 0x0006
+//#define CMD_START_SINGLE_MEAS 0x0006              // removed was not stable in SCD30
 #define CMD_STOP_MEAS 0x0104
 #define CMD_GET_FW_LEVEL 0xD100                     // added August 2020
+#define SCD30_SERIAL_NUM_WORDS 3                    // added August 2020
+// The longer serial number is 16 words / 32 bytes (means 48 bytes with CRC).
+// Most I2C buffers are by default 32. Hence the length is kept to the
+// 3 words = first 6 (equal to what is printed on the case).
+// The additional information is for Senserion internal only.
 
 class SCD30
 {
@@ -114,10 +119,10 @@ class SCD30
         boolean getSerialNumber(char *val);
 
         // paulvha : added August 2020
-        boolean getForceRecalibration(uint16_t *val);
-        boolean getMeasurementInterval(uint16_t *val);
-        boolean getTemperatureOffset(uint16_t *val);
-        boolean getAltitudeCompensation(uint16_t *val);
+        boolean getForceRecalibration(uint16_t *val)  {return(getSettingValue(COMMAND_SET_FORCED_RECALIBRATION_FACTOR, val));}
+        boolean getMeasurementInterval(uint16_t *val) {return(getSettingValue(COMMAND_SET_MEASUREMENT_INTERVAL, val));}
+        boolean getTemperatureOffset(uint16_t *val)   {return(getSettingValue(COMMAND_SET_TEMPERATURE_OFFSET, val));}
+        boolean getAltitudeCompensation(uint16_t *val){return(getSettingValue(COMMAND_SET_ALTITUDE_COMPENSATION, val));}
         boolean getFirmwareLevel(uint8_t *val);
 
         uint16_t getCO2(void);
@@ -141,30 +146,28 @@ class SCD30
   private:
 
         boolean readMeasurement();
+        boolean sendCommand(uint16_t command, uint16_t arguments, bool arg);    // added August 2020
         boolean sendCommand(uint16_t command, uint16_t arguments);
         boolean sendCommand(uint16_t command);
-        uint8_t ReadFromSCD30(uint16_t command, uint8_t *val, uint8_t cnt);
-        //uint16_t readRegister(uint16_t registerAddress);
+        uint8_t ReadFromSCD30(uint16_t command, uint8_t *val, uint8_t cnt);     // added August 2020
+        bool getSettingValue(uint16_t command, uint16_t *val);                  // added August 2020
 
         uint8_t computeCRC8(uint8_t data[], uint8_t len);
 
         // paulvha : added for debug messages
         void debug_cmd(uint16_t command);
 
-        //Variables
+        // Variables
         TwoWire *_i2cPort; //The generic connection to user's chosen I2C hardware
 
-        //Global main datums
+        // Global main datums
         float co2 = 0;
         float temperature = 0;
         float humidity = 0;
 
-        //These track the staleness of the current data
-        //This allows us to avoid calling readMeasurement() every time individual datums are requested
+        // These track the staleness of the current data
+        // This allows us to avoid calling readMeasurement() every time individual datums are requested
         boolean co2HasBeenReported = true;
         boolean humidityHasBeenReported = true;
         boolean temperatureHasBeenReported = true;
-
-        uint8_t data[2];
-        uint8_t crc, y;
 };
