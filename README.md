@@ -42,6 +42,9 @@ Modified by Paulvha version August 2020:
  * A number of library enhancements
  * updated sketches and library where needed
 
+Modified by Paulvha version October 2020
+  * Update in readmeasurement to translate byte to float. It did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
+
 ============= ORIGINAL INFORMATION FROM SPARKFUN ===========================
 
 SparkFun SCD30 CO2 Sensor Library
