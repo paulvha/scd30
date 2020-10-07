@@ -53,7 +53,10 @@
   * added functions : getForceRecalibration, getMeasurementInterval, getTemperatureOffset, getAltitudeCompensation, getFirmwareLevel
   * updated the keywords.txt file
   * added example14 to demonstrate the new functions
-  * updated sketches (Deviceinfo() and library routines where needed
+  * updated sketches Deviceinfo() and library routines where needed
+  *
+  Change October 2020
+  * Update in readmeasurement to translate byte to float. did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
   *********************************************************************
 */
 
@@ -213,7 +216,7 @@ uint8_t SCD30::ReadFromSCD30(uint16_t command, uint8_t *val, uint8_t cnt)
     {
       byte incoming = _i2cPort->read();
 
-      if (SCD_DEBUG > 0) printf("x %d, 0x%02X ",x , incoming);
+      if (SCD_DEBUG > 0) printf("0x%02X ", incoming);
 
       if (y == 2) {           // handle CRC
 
@@ -449,34 +452,49 @@ boolean SCD30::dataAvailable()
   return (false);
 }
 
+/**
+ * @brief : translate float IEEE754 to val[x]
+ * @param value : return float number
+ * @param p : offset in buffer
+ *
+ * return : float number  added October 2020
+ */
+void SCD30::byte_to_float(float *value, uint8_t *p)
+{
+  ByteToFloat conv;
+  for (byte i = 0; i < 4; i++) conv.array[3-i] = *p++ ;
+  *value = conv.value;
+}
+
 //Get 18 bytes from SCD30. see 1.4.5
 
 //Updates global variables with floats
 //Returns true if success
 boolean SCD30::readMeasurement()
 {
-  uint32_t tempCO2 = 0;
-  uint32_t tempHumidity = 0;
-  uint32_t tempTemperature = 0;
-  uint8_t  temp[12];
+  uint8_t temp[12];
 
-  //Verify we have data from the sensor
+  // Verify we have data from the sensor
   if (! dataAvailable() ) return (false);
 
   // request from SCD30
   if (ReadFromSCD30(COMMAND_READ_MEASUREMENT, temp, 12) != 12) return(false);
+/*
+  // test data as in the Datasheet to check correct byte translation
+  // this should result in C02 439PPM, temp 27.2 , Hum 48.8%
+  temp[0] =0x43;  temp[1] =0xDB;  temp[2] =0x8c;  temp[3] =0x2e;
+  temp[4] =0x41;  temp[5] =0xd9;  temp[6] =0xe7;  temp[7] =0xff;
+  temp[8] =0x42;  temp[9] =0x43;  temp[10] =0x3a;  temp[11] =0x74;
+*/
+  byte_to_float(&co2, &temp[0]);                // changed October 2020
+  byte_to_float(&temperature, &temp[4]);
+  byte_to_float(&humidity, &temp[8]);
 
-  tempCO2 = temp[0] << 24 | temp[1] << 16 | temp[2] << 8 | temp[3];
-  tempTemperature = temp[4] << 24 | temp[5] << 16 | temp[6] << 8 | temp[7];
-  tempHumidity  = temp[8] << 24 | temp[9] << 16 | temp[10] << 8 | temp[11];
-
-  if (SCD_DEBUG > 0)
-      printf(" CO2 : 0x%04X, Temperature 0x%04X, Humidity 0x%04X\n",tempCO2, tempTemperature, tempHumidity  );
-
-  //Now copy the uint32s into their associated floats
-  memcpy(&co2, &tempCO2, sizeof(co2));
-  memcpy(&temperature, &tempTemperature, sizeof(temperature));
-  memcpy(&humidity, &tempHumidity, sizeof(humidity));
+  if (SCD_DEBUG > 0) {
+      printf("CO2: 0x%02X%02X%02X%02x, ",temp[0], temp[1], temp[2], temp[3]);
+      printf("Temperature: 0x%02X%02X%02X%02x, ",temp[4], temp[5], temp[6], temp[7]);
+      printf("Humidity: 0x%02X%02X%02X%02x\n",temp[8], temp[9], temp[10], temp[11]);
+  }
 
   //Mark our global variables as fresh
   co2HasBeenReported = false;
@@ -550,7 +568,7 @@ void SCD30::debug_cmd(uint16_t command)
             printf("CMD_GET_FW_LEVEL");
             break;
         default:
-            printf("0x%04X : COMMAND_UNKNOWN");
+            printf("COMMAND_UNKNOWN");
             break;
     }
 }

@@ -54,6 +54,8 @@
  * added example14 to demonstrate the new functions
  * updated sketches and library where needed
  *
+ Change October 2020
+  * Update in readmeasurement to translate byte to float. did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
   *********************************************************************
 */
 
@@ -97,6 +99,13 @@
 // Most I2C buffers are by default 32. Hence the length is kept to the
 // 3 words = first 6 (equal to what is printed on the case).
 // The additional information is for Senserion internal only.
+
+/* needed for conversion float IEE754
+ * added October 2020*/
+typedef union {
+    byte array[4];
+    float value;
+} ByteToFloat;
 
 class SCD30
 {
@@ -170,4 +179,6 @@ class SCD30
         boolean co2HasBeenReported = true;
         boolean humidityHasBeenReported = true;
         boolean temperatureHasBeenReported = true;
+
+        void byte_to_float(float *value, uint8_t *p);                       // added October 2020
 };
