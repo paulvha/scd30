@@ -44,6 +44,7 @@ Modified by Paulvha version August 2020:
 
 Modified by Paulvha version October 2020
   * Update in readmeasurement to translate byte to float. It did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
+  * added example4 to manual input temperature offset and see impact.
 
 ============= ORIGINAL INFORMATION FROM SPARKFUN ===========================
 
