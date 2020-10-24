@@ -56,6 +56,8 @@
  *
  Change October 2020
   * Update in readmeasurement to translate byte to float. did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
+  * Added example5 to work with Sparkfun LCD
+  * update to example4
   *********************************************************************
 */
 

@@ -14,25 +14,62 @@
   *************************************************************************************************
   
   This example prints the current CO2 level, relative humidity, and temperature in C from the SCD30
-  You can test the impact of the temperature offset on temperature reading and humidity.
+  You can test / set the impact of the temperature offset on temperature reading and humidity.
   
-  !! It will NOT impact CO2 measurement. !!!
-  
-  At any moment you can change the temperature offset but just entering the desired change to 
-  measured value. (e.g. 6 <enter> for 6 degrees). It might be 5 seconds before you see that it 
-  has been applied, but you will get confirmation whether it was applied or failed.
+  !! It will NOT impact CO2 measurement. Only the Temperature and Humidity output results  !!!
 
-  It will then take minutes before the full impact can be seen as the SCD30 applies the offset 
-  in small steps
+  The higher the temperature offset, the lower the temperature output and increase in humidity.
+ 
+  At any moment you can change the temperature offset but just entering the desired change in the 
+  serial monitor to measured value. (e.g. 6 <enter> for 6 degrees). It might be 5 seconds before you 
+  see that it has been applied, but you will get confirmation whether it was applied or failed.
+
+  It will then take about 10 minutes before the full impact can be seen as the SCD30 applies 
+  the offset in small steps.
 
   The temperature offset is stored on the SCD30 and used after re-powering, 
   to disable set it to zero (0 <enter>)
 
-  **********************************************************************
+  *********************************************************************
+  * use for temperature Calibration (will NOT impact CO2 measurement)
+  *********************************************************************
+
+  You can use this sketch to calibrate and store the temperature offset
+  Try to create a stable environment with 1 or more external temperature measurement devices.
+  
+  1. Start the sketch and enter 0 to disable any current temperature offset 
+  2. Let the sketch run for some time and watch that the SCD30 temperature reading is
+     more or less stable for couple of minutes. This can take up to 30 minutes.
+  3. Watch the difference between the SCD30 and external temperature measurement device.
+  4. Now enter the number that is different (e.g. SCD30 is 6.2 degrees higher, then enter 6.2)
+     You can NOT enter a negative number !
+  5. It will take up to 10 minutes before you see the full effect. (so > 600 seconds AFTER you entered)
+  6. If still to much difference after 20 minutes repeat from step 3. But remember your kost recent 
+     change entered, say it was 6.2. If the SCD30 output is still 1 degree to high, you must enter 7.2.
+     If the SCD30 reading is now 0.5 degrees to low, you must enter 5.7 !!!
+
+  The temperature offset is stored on the SCD30 and used after re-powering, 
+
+  In my case :
+  After entering 0 (step 1) it took 730 seconds before more or less stable (step2). The SCD30 was
+  showing 24.40, where a good quality other temperature meter was indicating 22.9C. (step 3) So
+  I have entered 2.52 for correction (step 4). 
+  
+  After 1720 the SCD30 was indicating 23,46, and the temperature meter 23.1.(Step 5)  
+  So I had to offset  23.36 - 23.1 = 0.26 more than 2.52 => 2.52 + 0.36 = 2.78 (step6)
+  
+  After 2715 the SCD30 was showing 22.9 where the temperature meter was showing 23.0. Now I enter  2.78 - 0.1 = 2.68
+
+  Repeated the above a couple of times everytime a smaller down change, ending on 2.6 as an offset. 
+  BUT then I let it run for hours.. and had to make a final adjustment to 3.1
+  ********************************************************************** 
   * Versioning:
   **********************************************************************
   October 2020 / paulvha
-    Added this example
+    * Added this example
+    
+  October 2020 / paulvha
+    * you can now enter in float (e.g. 6.2 instead of only 6)
     
   **********************************************************************
   pin layout SCD30
@@ -78,28 +115,7 @@
     SDA --- 21
 
   Given that SCD30 is using clock stretching SoftWire is selected by the driver to deal with that.
-  Make sure to press the GPIO0 button for connect /upload
-
-  NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE NOTE
-  In case of ESP32, given the SoftWire library, you have to make a change in SparkfunBME280.h.
-  Line 39 states:    #include <Wire.h>
-  Comment that line out : //#include <Wire.h>
-
-  NOW include :
-   #if defined(ARDUINO_ARCH_ESP32)
-   #include <SoftWire/SoftWire.h>
-   #else
-   #include <Wire.h>
-   #endif
-
-  BME280
-   VIN  --- 3V3 or 5V
-   3v3  --- Not Connected
-   GND  --- GND
-   SCK  --- SCL
-   SDO  --- Not Connected
-   SDI  --- SDA
-   CS   --- Not Connected
+  Make sure to press the GPIO0 button for connect / upload
 */
 
 //////////////////////////////////////////////////////////////////////////
@@ -196,9 +212,9 @@ void handle_input(char c)
   }
   
   input[inpcnt] = 0x0;
-  uint16_t tempAdjust = (uint16_t) atoi(input);
 
-  if (! airSensor.setTemperatureOffset(tempAdjust*100)) {
+  float tempAdjust= atof(input);
+  if (! airSensor.setTemperatureOffset(tempAdjust)) {
     Serial.println(F("Could not set temperature offset"));
   }
   else {

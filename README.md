@@ -1,29 +1,27 @@
-paulvha SCD30 library
+# paulvha SCD30 library
 ===========================================================
 
-Based on the SparkFun SCD30 CO2 Sensor Library, see information below
+An extended SCD30 library based on the SparkFun SCD30 CO2 Sensor Library, see information below
 
 ## Versioning
 
-Modified by paulvha version 10 August, 2018
+### Modified by Paulvha version October 2020
+  * Update in readmeasurement to translate byte to float. It did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
+  * added example4 to manual input temperature offset and see impact.
+  * SECOND UPDATE IN OCTOBER
+  * Added example5 to work with Sparkfun LCD
+  * update to example4 to set and calibrate temperature offset
 
-  Changes:
-  * Added ESP8266 board detection in begin() to support the ESP8266 clockstretching
-  * Added setting debug messages
-  * Added obtaining serial number of SCD30
-  * Added StopMeasurement
-  * Added StartSingleMeasurement (removed January 2019 as it unstable)
-  * Added GetTemperature in Fahrenheit
-  * Added CRC checks on different places in de driver
-  * Updated existing sketches fom Sparkfun to new library
-  * Added new sketches :
-            Example 10: combined read with BME280
-            Example 11: Set ESP8266 as Access Point and read SCD30 in browser
-            Example 12: Set ESP8266 as WIFI server and read SCD30 in browser
+### Modified by Paulvha version August 2020:
 
-More work to be follow on connecting / comparing with other sensors and document the learnings.
+ Changes based on Datasheet May 2020
+ * added functions : getForceRecalibration, getMeasurementInterval, getTemperatureOffset, getAltitudeCompensation, getFirmwareLevel
+ * updated the keywords.txt file
+ * added example14 to demonstrate the new functions
+ * A number of library enhancements
+ * updated sketches and library where needed
 
-Modified by Paulvha version February 2019
+### Modified by Paulvha version February 2019
 
  Changes:
  * Added option in examples 10 and 13 to set BME280 I2C address. (some use 0x76 instead of 0x77)
@@ -33,18 +31,23 @@ Modified by Paulvha version February 2019
  * updated the keywords.txt file
  * updated sketches and library where needed
 
-Modified by Paulvha version August 2020:
+### Modified by paulvha version 10 August, 2018
 
- Changes based on Datasheet May 2020
- * added functions : getForceRecalibration, getMeasurementInterval, getTemperatureOffset, getAltitudeCompensation, getFirmwareLevel
- * updated the keywords.txt file
- * added example14 to demonstrate the new functions
- * A number of library enhancements
- * updated sketches and library where needed
+  Changes:
+  * Added ESP8266 board detection in begin() to support the ESP8266 clockstretching
+  * Added setting debug messages
+  * Added obtaining serial number of SCD30
+  * Added StopMeasurement
+  * Added StartSingleMeasurement (removed February 2019 as it IS unstable)
+  * Added GetTemperature in Fahrenheit
+  * Added CRC checks on different places in de driver
+  * Updated existing sketches fom Sparkfun to new library
+  * Added new sketches :
+            Example 10: combined read with BME280
+            Example 11: Set ESP8266 as Access Point and read SCD30 in browser
+            Example 12: Set ESP8266 as WIFI server and read SCD30 in browser
 
-Modified by Paulvha version October 2020
-  * Update in readmeasurement to translate byte to float. It did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
-  * added example4 to manual input temperature offset and see impact.
+More work to be follow on connecting / comparing with other sensors and document the learnings.
 
 ============= ORIGINAL INFORMATION FROM SPARKFUN ===========================
 

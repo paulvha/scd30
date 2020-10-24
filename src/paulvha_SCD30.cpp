@@ -14,7 +14,7 @@
   https://github.com/sparkfun/SparkFun_SCD30_Arduino_Library
 
   Development environment specifics:
-  Arduino IDE 1.8.5
+  Arduino IDE 1.8.5 - 1.8.13
 
   This program is distributed in the hope that it will be useful,
   but WITHOUT ANY WARRANTY; without even the implied warranty of
@@ -57,6 +57,8 @@
   *
   Change October 2020
   * Update in readmeasurement to translate byte to float. did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
+  * Added example5 to work with Sparkfun LCD
+  * update to example4
   *********************************************************************
 */
 
@@ -327,10 +329,11 @@ boolean SCD30::setTemperatureOffset(uint16_t tempOffset)
   return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, tempOffset));
 }
 
-// For backward compatibility
+// For backward compatibility and higher precision
 boolean SCD30::setTemperatureOffset(float tempOffset)
 {
-  return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, uint16_t (tempOffset * 100)));
+  if ( tempOffset < 0 ) return false;   // SCD30 can not handle negative number and uint16_t value would be incorrect
+  return (sendCommand(COMMAND_SET_TEMPERATURE_OFFSET, (uint16_t) (tempOffset * 100)));
 }
 
 /* read 16 bit value from a register
