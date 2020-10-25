@@ -166,7 +166,7 @@ void setup()
 
 void loop()
 {
-  float temps,tempb,hums;
+  float temps,hums;
   static uint16_t  secc = 0;   // count seconds
 
   // handle any keyboard input
@@ -213,7 +213,8 @@ void handle_input(char c)
   
   input[inpcnt] = 0x0;
 
-  float tempAdjust= atof(input);
+  float tempAdjust = asciitof(input);
+  
   if (! airSensor.setTemperatureOffset(tempAdjust)) {
     Serial.println(F("Could not set temperature offset"));
   }
@@ -249,4 +250,54 @@ void DeviceInfo()
   else {
     Serial.println("Could not obtain firmware level");
   }
+}
+
+// October 2020
+// Added code below as atof() on Artemis / Apollo3 is causing compile errors
+// lib version 2.0.2 :  undefined reference to `__wrap__calloc_r'
+// Expect that this will be fixed in the future, but for now include an alternative
+// taken from https://github.com/GaloisInc/minlibc/blob/master/atof.c
+#define isdigit(c) (c >= '0' && c <= '9')
+
+double asciitof(const char *s)
+{
+  // This function stolen from either Rolf Neugebauer or Andrew Tolmach. 
+  // Probably Rolf.
+  double a = 0.0;
+  int e = 0;
+  int c;
+  while ((c = *s++) != '\0' && isdigit(c)) {
+    a = a*10.0 + (c - '0');
+  }
+  if (c == '.') {
+    while ((c = *s++) != '\0' && isdigit(c)) {
+      a = a*10.0 + (c - '0');
+      e = e-1;
+    }
+  }
+  if (c == 'e' || c == 'E') {
+    int sign = 1;
+    int i = 0;
+    c = *s++;
+    if (c == '+')
+      c = *s++;
+    else if (c == '-') {
+      c = *s++;
+      sign = -1;
+    }
+    while (isdigit(c)) {
+      i = i*10 + (c - '0');
+      c = *s++;
+    }
+    e += i*sign;
+  }
+  while (e > 0) {
+    a *= 10.0;
+    e--;
+  }
+  while (e < 0) {
+    a *= 0.1;
+    e++;
+  }
+  return a;
 }
