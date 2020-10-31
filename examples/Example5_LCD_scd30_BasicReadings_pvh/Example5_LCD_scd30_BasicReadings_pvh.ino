@@ -164,7 +164,7 @@
 #define ONLYONLIMIT false        // only display the results on the LCD display if the CO2LIMITLOW or CO2LIMITHIGH is exceeded
                                  // set to false disables this option.
                                  // do NOT select together with ONLYONBUTTON
-                                 // make sure to set CO2LIMITLOW > 0 (compile will fail)
+                                 // make sure to set CO2LIMITLOW > 0  && CO2LIMITHIGH > 0(compile will fail)
                                
 #define ONLYONBUTTON false       // only display the results on the LCD display (blue) if the CO2LIMITLOW or (red) if CO2LIMITHIGH
                                  // is exceeded OR for LCDTIMEOUT seconds if a button is pushed
@@ -447,11 +447,11 @@ void printLCD(bool dd)
       limitLowWasSet = false;
     }
   }
-#endif
+#endif //CO2LIMITLOW
   
 // only display if limit has been reached  
 #if ONLYONLIMIT == true
-  if(! limitWasSet) {
+  if(! limitLowWasSet && ! limitHighWasSet) {
     lcd.clear();
     return;
   }
