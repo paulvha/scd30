@@ -59,11 +59,11 @@
   SCD30   Arduino    LCD
     VCC --- 5V------ RAW 3V3 - 9
     GND --- GND----- GND 
-    SCL --- SCL -----DA   --resistor --|  ( SCL Arduino UNO A5)
-    SDA --- SDA ---- SC   --resistor --|  ( SDA Arduino UNO A4)
-            3V3 -----------------------|
+    SCL --- SCL -----CL   ( SCL Arduino UNO A5)
+    SDA --- SDA ---- DA   ( SDA Arduino UNO A4)
+     
+  The LCD has pull-up resistors to 3v3 already
 
-  resistor value 4K7 or higher.
             
   === CONNECT TO ESP8266-THING ===
 
@@ -73,9 +73,10 @@
   SCD30    ESP8266  LCD
     GND --- GND ----GND
     VCC --- 3V3 ----3V3 - 9
-    SCL --- SCL --- SC  --resistor --|
-    SDA --- SDA --- DA  --resistor --|
-            3V3 ---------------------|
+    SCL --- SCL --- CL  
+    SDA --- SDA --- DA  
+
+  The LCD has pull-up resistors to 3v3 already
   Given that SCD30 is using clock stretching the driver has been modified to deal with that.
 
   === CONNECT TO ESP32-THING ===
@@ -83,9 +84,10 @@
   SCD30    ESP32    LCD
     GND --- GND --- GND
     VCC --- USB --- RAW 3V3 -9
-    SCL --- 22  --- DA  --resistor -| 
-    SDA --- 21  --- CL  --resistor -| 
-           3V3 ---------------------|
+    SCL --- 22  --- CL  
+    SDA --- 21  --- DA  
+
+  The LCD has pull-up resistors to 3v3 already
   
   !!!! WARNING !!!!! WARNING !!!!! WARNING !!!!! WARNING !!!!! WARNING !!!!! WARNING !!!!!
   Given that SCD30 is using clock stretching, SoftWire is selected by the driver to deal with that.
@@ -116,7 +118,8 @@
 
   Note: If you connect directly to a 5V Arduino instead, you *MUST* use
   a level-shifter on SDA and SCL to convert the i2c voltage levels down to 3.3V for the display.
-
+  
+  !!!! Measured with a scope it turns out that the pull up is already to 3V3 !!!!
   If ONLYONBUTTON is set, connect a push-button switch between pin BUTTONINPUT and ground.
    
   No support.. use as you like.. good luck !!
@@ -140,24 +143,34 @@
 //////////////////////////////////////////////////////////////////////////
 //                SELECT LCD settings                                   //
 //////////////////////////////////////////////////////////////////////////
+// CO2 limits what is good or bad or ugly ?
+//
+// CO2 outside is ~ 400PPM      (used to be 200 - 300ppm around 1900 but is increasing due to polution)
+// double that size gets bad    (hence 700 is set as limit so you can open windows on-time)
+// treetime is ugly             (hence 1000 is set as limit as you really do not want 1200ppm)
+///////////////////////////////////////////////////////////////////////// 
 #define LCDTEMPCELSIUS  true     // set to false to display temperature in Fahrenheit
 
 #define LCDBACKGROUNDCOLOR  1    // Normal background color: 1 = white, 2 = red, 3 = green 4 = blue 5 = off
 
-#define CO2LIMIT  700            // Background LCD color will start LCDBACKGROUNDCOLOR and turn to red if 
+#define CO2LIMITLOW  700         // Background LCD color will start LCDBACKGROUNDCOLOR and turn to blue if 
                                  // CO2 is above this limit to return to LCDBACKGROUNDCOLOR background when below. 
                                  // set to zero to disable
-                                 
-#define ONLYONLIMIT false        // only display the results on the LCD display if the CO2LIMIT is exceeded
+
+#define CO2LIMITHIGH 1000        // Background LCD color will start LCDBACKGROUNDCOLOR and turn to red if 
+                                 // CO2 is above this limit to return to CO2LIMITLOW and then LCDBACKGROUNDCOLOR background when below. 
+                                 // set to zero to disable
+                                                                  
+#define ONLYONLIMIT false        // only display the results on the LCD display if the CO2LIMITLOW or CO2LIMITHIGH is exceeded
                                  // set to false disables this option.
                                  // do NOT select together with ONLYONBUTTON
-                                 // make sure to set CO2LIMIT > 0 (compile will fail)
+                                 // make sure to set CO2LIMITLOW > 0 (compile will fail)
                                
-#define ONLYONBUTTON false       // only display the results on the LCD display (red) if the CO2LIMIT
+#define ONLYONBUTTON false       // only display the results on the LCD display (blue) if the CO2LIMITLOW or (red) if CO2LIMITHIGH
                                  // is exceeded OR for LCDTIMEOUT seconds if a button is pushed
                                  // set to false disables this option
                                  // do NOT select together with ONLYONLIMIT
-                                 // if CO2LIMIT is zero the LCD will only display when button is pressed  
+                                 // if CO2LIMITLOW is zero the LCD will only display when button is pressed  
 #if ONLYONBUTTON == true                    
 #define BUTTONINPUT  10         // Digital input where button is connected for ONLYONBUTTON between GND
                                  // is ignored if ONLYONBUTTON is set to false
@@ -176,14 +189,14 @@
 #error you can NOT set BOTH ONLYONLIMIT and ONLYONBUTTON to true
 #endif
 
-#if ONLYONLIMIT == true && CO2LIMIT == 0
-#error you MUST set CO2LIMIT when ONLYONLIMIT to true
+#if ONLYONLIMIT == true && ( CO2LIMITLOW == 0 ||CO2LIMITHIGH == 0)
+#error you MUST set CO2LIMITLOW and CO2LIMITHIGH when ONLYONLIMIT to true
 #endif
 
 #include "paulvha_SCD30.h"
 #include <SerLCD.h> //Click here to get the library: http://librarymanager/All#SparkFun_SerLCD
-SerLCD lcd;         // Initialize the library with default I2C address 0x72
 
+SerLCD lcd;         // Initialize the library with default I2C address 0x72
 SCD30 airSensor;    // Initialize the library with default I2C address 0x61
 
 byte ppm[8] = {     // ppm custom character
@@ -230,7 +243,7 @@ void setup()
 
   airSensor.setDebug(scd_debug);
 
-  //This will cause readings to occur every two seconds
+  // This will cause readings to occur every two seconds
   if (! airSensor.begin(SCD30WIRE))
   {
     Serial.println(F("The SCD30 did not respond. Please check wiring."));
@@ -290,6 +303,10 @@ void DeviceInfo()
   if (airSensor.getSerialNumber(buf)) {
    Serial.print(F("SCD30 serial number : "));
    Serial.println(buf);
+   
+   lcd.setCursor(0, 0);            // pos 0, line 0
+   lcd.write("snr: ");
+   lcd.write(buf);
   }
 
   // read Firmware level
@@ -299,10 +316,18 @@ void DeviceInfo()
 
     Serial.print("\t, Minor: ");
     Serial.println(val[1]);
+    
+    lcd.setCursor(0, 1);            // pos 0, line 1
+    lcd.write("Fw:  ");
+    sprintf(buf,"%d.%d", val[0], val[1]);
+    lcd.write(buf);
+    
   }
   else {
     Serial.println("Could not obtain firmware level");
   }
+  
+  delay(5000);
 }
 
 // checks for button pressed to set the LCD on and keep on for 
@@ -386,24 +411,43 @@ void printLCD(bool dd)
 {
   char buf[10];
   int co2 = airSensor.getCO2();
-  static bool limitWasSet = false;
+  static bool limitLowWasSet = false;       // low limit has been set (true)
+  static bool limitHighWasSet = false;      // high limit has been set
   static bool MeasureInd = true;
   
-  // change background on limit (if limit was set)
-#if CO2LIMIT > 0 
-  
-  if (co2 > CO2LIMIT){
+// change background to red on high limit (if limit was set)
+#if CO2LIMITHIGH > 0 
+ 
+  if (co2 > CO2LIMITHIGH){
     // change once..
-    if(! limitWasSet){
+    if(! limitHighWasSet){
       lcd.setBacklight(255, 0, 0); // bright red
-      limitWasSet = true;
+      limitHighWasSet = true;
     }
   }
-  else if (limitWasSet){
-    lcdsetbackground();           // reset to original request
-    limitWasSet = false;
+  else if (limitHighWasSet){
+    lcd.setBacklight(0, 0, 255); // bright blue
+    limitHighWasSet = false;
   }
-#endif //CO2LIMIT
+#endif //CO2LIMITHIGH
+
+#if CO2LIMITLOW > 0 
+  if ( ! limitHighWasSet){
+
+    // only change is high limit was not set
+    if (co2 > CO2LIMITLOW ){
+      // change once..
+      if(! limitLowWasSet){
+        lcd.setBacklight(0, 0, 255); //bright blue
+        limitLowWasSet = true;
+      }
+    }
+    else if (limitLowWasSet){
+      lcdsetbackground();           // reset to original request
+      limitLowWasSet = false;
+    }
+  }
+#endif
   
 // only display if limit has been reached  
 #if ONLYONLIMIT == true
@@ -415,7 +459,7 @@ void printLCD(bool dd)
 
 // only display if button was pressed or limit has been reached
 #if ONLYONBUTTON == true
-  if(! checkButton() && ! limitWasSet) {
+  if(! checkButton() && ! limitLowWasSet && !limitHighWasSet) {
     lcd.clear();
     lcd.setBacklight(0, 0, 0);  // off
     return;
