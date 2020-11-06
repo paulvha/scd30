@@ -5,6 +5,9 @@ An extended SCD30 library based on the SparkFun SCD30 CO2 Sensor Library, see in
 
 ## Versioning
 
+### Modified by Paulvha version November 2020
+  * solved a conflict with ByteToFloat when using SPS30 at the same time
+
 ### Modified by Paulvha version October 2020
   * Update in readmeasurement to translate byte to float. It did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
   * added example4 to manual input temperature offset and see impact.

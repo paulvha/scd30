@@ -59,6 +59,9 @@
   * Update in readmeasurement to translate byte to float. did not work on Arduino. Tested on Uno, Artemis Apollo3, ESP32
   * Added example5 to work with Sparkfun LCD
   * update to example4
+  *
+  Change November 2020
+  * solved a conflict with ByteToFloat when using SPS30 at the same time (rename to ByteToFl)
   *********************************************************************
 */
 
@@ -464,7 +467,7 @@ boolean SCD30::dataAvailable()
  */
 void SCD30::byte_to_float(float *value, uint8_t *p)
 {
-  ByteToFloat conv;
+  ByteToFl conv;
   for (byte i = 0; i < 4; i++) conv.array[3-i] = *p++ ;
   *value = conv.value;
 }
