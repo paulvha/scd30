@@ -86,7 +86,7 @@ SCD30::SCD30(void)
  * @param wirePort : I2C channel to use
  * @param m_begin  : if true will start measurement every 2 seconds
  */
-boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
+boolean SCD30::begin(TwoWire &wirePort, bool m_begin, boolean autoCalibrate)
 {
   _i2cPort = &wirePort; //Grab which port the user wants us to use
 
@@ -136,7 +136,7 @@ boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
   if(beginMeasuring())            //Start continuous measurements
   {
     setMeasurementInterval(2);    //2 seconds between measurements
-    setAutoSelfCalibration(true); //Enable auto-self-calibration
+    setAutoSelfCalibration(autoCalibrate); //Set auto-self-calibration
 
     return (true);
   }
