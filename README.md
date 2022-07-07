@@ -5,6 +5,15 @@ An extended SCD30 library based on the SparkFun SCD30 CO2 Sensor Library, see in
 
 ## Versioning
 
+### Change July 2022
+  * added option autoCalibrate to begin() to enable disable auto calibration (contribution of jhengstermann)
+ <br>
+  * begin(TwoWire &wirePort = Wire, bool m_begin = true, boolean autoCalibrate = true);
+ <br>
+  * wirePort : I2C channel to use.  Wire by default.
+  * m_begin  : if true will start measurement every 2 seconds. True / start by default.
+  * autoCalibrate : if true will enable or false disable autocalibrate at begin. True / Enable ASC by default.
+
 ### Modified by Paulvha version November 2020
   * solved a conflict with ByteToFloat when using SPS30 at the same time
 
@@ -51,6 +60,8 @@ An extended SCD30 library based on the SparkFun SCD30 CO2 Sensor Library, see in
             Example 12: Set ESP8266 as WIFI server and read SCD30 in browser
 
 More work to be follow on connecting / comparing with other sensors and document the learnings.
+
+check for updated datasheet and information on ![Sensirion](https://sensirion.com/search/?q=scd30)
 
 ============= ORIGINAL INFORMATION FROM SPARKFUN ===========================
 
