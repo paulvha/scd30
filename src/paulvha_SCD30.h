@@ -61,6 +61,9 @@
   *
  Change November 2020
   * solved a conflict with ByteToFloat when using SPS30 at the same time (rename to ByteToFl)
+  *
+ Change July 2022
+  * added option autoCalibrate to begin() to enable disable auto calibration
   *********************************************************************
 */
 
@@ -117,7 +120,7 @@ class SCD30
   public:
         SCD30(void);
 
-        boolean begin(TwoWire &wirePort = Wire, bool m_begin = true); //By default use Wire port
+        boolean begin(TwoWire &wirePort = Wire, bool m_begin = true, boolean autoCalibrate = true); //By default use Wire port
 
         boolean beginMeasuring(uint16_t pressureOffset);
         boolean beginMeasuring(void);

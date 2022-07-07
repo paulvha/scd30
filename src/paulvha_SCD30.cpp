@@ -62,6 +62,9 @@
   *
   Change November 2020
   * solved a conflict with ByteToFloat when using SPS30 at the same time (rename to ByteToFl)
+
+  Change July 2022
+  * added option autoCalibrate to begin() to enable disable auto calibration
   *********************************************************************
 */
 
@@ -85,8 +88,9 @@ SCD30::SCD30(void)
  * @brief Initialize the Serial port
  * @param wirePort : I2C channel to use
  * @param m_begin  : if true will start measurement every 2 seconds
+ * @param autoCalibrate : will enable / disable autocalibrate at begin. Enable by default
  */
-boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
+boolean SCD30::begin(TwoWire &wirePort, bool m_begin, boolean autoCalibrate)
 {
   _i2cPort = &wirePort; //Grab which port the user wants us to use
 
@@ -136,7 +140,7 @@ boolean SCD30::begin(TwoWire &wirePort, bool m_begin)
   if(beginMeasuring())            //Start continuous measurements
   {
     setMeasurementInterval(2);    //2 seconds between measurements
-    setAutoSelfCalibration(true); //Enable auto-self-calibration
+    setAutoSelfCalibration(autoCalibrate); //Enable /disable auto-self-calibration
 
     return (true);
   }
