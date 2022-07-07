@@ -10,9 +10,9 @@ An extended SCD30 library based on the SparkFun SCD30 CO2 Sensor Library, see in
  <br>
   * begin(TwoWire &wirePort = Wire, bool m_begin = true, boolean autoCalibrate = true);
  <br>
-  * wirePort : I2C channel to use.  Wire by default.
-  * m_begin  : if true will start measurement every 2 seconds. True / start by default.
-  * autoCalibrate : if true will enable or false disable autocalibrate at begin. True / Enable ASC by default.
+  * wirePort : I2C channel to use.  Wire by default.<br>
+  * m_begin  : if true will start measurement every 2 seconds. True / start by default.<br>
+  * autoCalibrate : if true will enable or false disable autocalibrate at begin. True / Enable ASC by default.<br>
 
 ### Modified by Paulvha version November 2020
   * solved a conflict with ByteToFloat when using SPS30 at the same time
