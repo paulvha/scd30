@@ -7,9 +7,7 @@ An extended SCD30 library based on the SparkFun SCD30 CO2 Sensor Library, see in
 
 ### October 2023
   * tested on UNO R4 WiFI with Wire (5V): Works correct unmodified.
-  * tested on UNO R4 WIFI with QWICC/Wire1 (3v3) : WORKS but<br>
-  ** needs more time to warm up /get stable<br>
-  ** temperature looks to be 1 degree HIGHER, humidity 2% LOWER
+  * tested on UNO R4 WIFI with QWICC/Wire1 (3v3) : WORKS but needs more time to warm up /get stable<br>
 
 ### Modified July 2022
   * added option autoCalibrate to begin() to enable disable auto calibration (contribution of jhengstermann)
